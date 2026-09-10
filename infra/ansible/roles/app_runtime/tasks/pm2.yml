@@ -82,14 +82,19 @@
     name: "pm2-{{ app_user }}"
     enabled: true
     daemon_reload: true
+  register: pm2_unit
 
 - name: Vérifier que le démarrage automatique est bien armé
-  ansible.builtin.command:
-    cmd: "systemctl is-enabled pm2-{{ app_user }}"
-  register: pm2_unit_enabled
-  changed_when: false
-  failed_when: pm2_unit_enabled.stdout is not search('enabled')
-  check_mode: false
+  # On lit l'état renvoyé par le module lui-même plutôt que d'appeler
+  # `systemctl` : c'est la même information, sans commande shell.
+  ansible.builtin.assert:
+    that:
+      - pm2_unit.status.UnitFileState | default('') in ['enabled', 'enabled-runtime']
+    fail_msg: >-
+      L'unité pm2-{{ app_user }} n'est pas activée au démarrage
+      (état : {{ pm2_unit.status.UnitFileState | default('inconnu') }}).
+      Un redémarrage du serveur laisserait l'API à l'arrêt.
+    success_msg: "Redémarrage automatique de l'API armé au boot du serveur."
 
 # --- Vérification de bon fonctionnement -------------------------------------
 
