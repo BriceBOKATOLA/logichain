@@ -1,5 +1,13 @@
 ---
 # --- Supervision du processus Node.js par PM2 -------------------------------
+#
+# L'ordre des tâches est significatif :
+#   1. démarrer (ou recharger) l'application ;
+#   2. figer la liste des processus dans dump.pm2 ;
+#   3. seulement ensuite, générer et activer l'unité systemd.
+# L'unité générée par PM2 exécute `pm2 resurrect`, qui restaure les processus
+# depuis dump.pm2 : l'activer avant l'étape 2 échouerait, faute d'état à
+# restaurer.
 
 - name: Interroger l'état du processus PM2
   # On s'appuie sur le CODE DE RETOUR de `pm2 describe` (0 si le processus
@@ -34,31 +42,16 @@
     PM2_HOME: "/home/{{ app_user }}/.pm2"
   when: not pm2_app_running
   changed_when: true
-  notify: reload api
 
-- name: Générer le service systemd de démarrage automatique de PM2
-  # Garantit que l'API redémarre toute seule après un reboot du VPS — sans
-  # quoi une coupure d'alimentation laisserait le service à l'arrêt.
-  ansible.builtin.command:
-    cmd: >-
-      pm2 startup systemd -u {{ app_user }}
-      --hp /home/{{ app_user }}
-    creates: "/etc/systemd/system/pm2-{{ app_user }}.service"
-  register: pm2_startup
-
-- name: Activer le service systemd PM2
-  ansible.builtin.systemd:
-    name: "pm2-{{ app_user }}"
-    enabled: true
-    state: started
-    daemon_reload: true
-
-- name: Appliquer les rechargements en attente avant de figer l'état
+- name: Appliquer les rechargements en attente
+  # Les handlers « reload api » déclenchés par une nouvelle release ou un
+  # changement de .env doivent être joués AVANT `pm2 save`, sinon le dump
+  # figerait l'état précédent.
   ansible.builtin.meta: flush_handlers
 
 - name: Figer la liste des processus PM2
-  # `pm2 save` écrit dump.pm2, que le service systemd relit au démarrage.
-  # Sans cette étape, le redémarrage automatique ne relancerait rien.
+  # `pm2 save` écrit dump.pm2, que l'unité systemd relit au démarrage du
+  # serveur. Sans cette étape, un redémarrage du VPS ne relancerait rien.
   ansible.builtin.command:
     cmd: pm2 save --force
   become: true
@@ -66,6 +59,37 @@
   environment:
     PM2_HOME: "/home/{{ app_user }}/.pm2"
   changed_when: false
+
+- name: Générer l'unité systemd de démarrage automatique de PM2
+  # Garantit que l'API redémarre toute seule après un reboot du VPS — sans
+  # quoi une coupure d'alimentation laisserait le service à l'arrêt.
+  ansible.builtin.command:
+    cmd: >-
+      pm2 startup systemd -u {{ app_user }}
+      --hp /home/{{ app_user }}
+    creates: "/etc/systemd/system/pm2-{{ app_user }}.service"
+
+- name: Activer l'unité systemd PM2 au démarrage
+  # `enabled` seulement, sans `state: started`. Le démon PM2 tourne déjà,
+  # lancé par le compte de service ; demander à systemd de le démarrer
+  # maintenant exécuterait `pm2 resurrect` sur un démon vivant, ce qui n'a
+  # aucun intérêt et fait échouer l'unité (Type=forking). Ce qui compte, c'est
+  # que l'unité soit ACTIVÉE : elle prendra la main au prochain redémarrage.
+  # `ansible.builtin.systemd` et non `systemd_service` : ce dernier n'existe
+  # qu'à partir d'ansible-core 2.17, alors que les postes et le runner CI
+  # tournent sur 2.16 (cf. requirements.yml).
+  ansible.builtin.systemd:
+    name: "pm2-{{ app_user }}"
+    enabled: true
+    daemon_reload: true
+
+- name: Vérifier que le démarrage automatique est bien armé
+  ansible.builtin.command:
+    cmd: "systemctl is-enabled pm2-{{ app_user }}"
+  register: pm2_unit_enabled
+  changed_when: false
+  failed_when: pm2_unit_enabled.stdout is not search('enabled')
+  check_mode: false
 
 # --- Vérification de bon fonctionnement -------------------------------------
 
