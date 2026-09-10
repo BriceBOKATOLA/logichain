@@ -37,6 +37,11 @@ app_repo_branch: main
 # Domaine pointé sur le VPS. Renseigné => Nginx sert en HTTPS et un certificat
 # Let's Encrypt est obtenu/renouvelé automatiquement. Vidé => HTTP seul par IP.
 app_domain: "logichain.online"
+# Noms supplémentaires couverts par le certificat et servis par Nginx.
+# Sans « www », un visiteur tapant www.logichain.online tomberait sur une
+# erreur de certificat alors que le DNS pointe bien vers ce serveur.
+app_domain_aliases:
+  - "www.logichain.online"
 # Adresse de contact Let's Encrypt (alertes d'expiration de certificat).
 letsencrypt_email: "ebangarodmilson@gmail.com"
 nginx_client_max_body_size: 10m
