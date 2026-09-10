@@ -34,11 +34,11 @@ d'or de cette architecture (`Découpage architectural strict`).
 ## Démarrage
 
 ```bash
-cp .env.example .env      # renseigner MONGO_URI, secrets JWT...
+cp .env.example .env      # les valeurs par défaut suffisent en local
 npm install
-npm run dev                # ou npm start
-node scripts/seed.js        # jeu de données de démonstration
-node scripts/generate-qrcodes.js   # génère les fiches QR imprimables des items (voir assets/qrcodes/)
+npm run dev               # ou npm start
+npm run db:seed           # jeu de données de démonstration
+npm run qrcodes           # fiches QR imprimables des items (voir assets/qrcodes/)
 ```
 
 Swagger UI : http://localhost:4000/api-docs
@@ -47,6 +47,42 @@ Healthcheck : http://localhost:4000/health
 Des QR codes de démonstration **déjà générés et vérifiés décodables** sont fournis
 dans `assets/qrcodes/` (correspondant aux items du seed) — pratique pour tester
 `ScanScreen` côté mobile sans matériel physique. Voir `assets/qrcodes/README.md`.
+
+## Qualité, tests et exploitation
+
+```bash
+npm run lint             # ESLint — zéro avertissement toléré
+npm run format:check     # Prettier
+npm test                 # 87 tests : 54 unitaires + 33 d'intégration
+npm run test:unit        # aucune I/O, exécution en millisecondes
+npm run test:integration # Express + Mongoose sur un replica set en mémoire
+npm run test:ci          # avec rapport de couverture
+npm run db:indexes       # synchronise les index MongoDB (idempotent)
+```
+
+Les tests d'intégration démarrent un **vrai replica set MongoDB en mémoire**
+(`mongodb-memory-server`) : la topologie est identique à celle de la
+production, ce qui permet de couvrir les transactions ACID. Aucun serveur
+externe n'est requis.
+
+### Configuration d'environnement
+
+Toutes les variables sont validées au démarrage par
+[`src/config/env.js`](src/config/env.js). Le processus **refuse de démarrer**
+plutôt que de tourner dans un état incohérent : en production, il rejette les
+secrets de démonstration, deux secrets JWT identiques, un secret trop court ou
+un `CORS_ORIGIN` à `*`. Tableau complet dans
+[CONTRIBUTING.md](../CONTRIBUTING.md#2-variables-denvironnement).
+
+Toute nouvelle variable doit être ajoutée dans **trois** fichiers à la fois :
+`src/config/env.js`, `.env.example` et
+`infra/ansible/roles/app_runtime/templates/env.j2`.
+
+### Déploiement
+
+L'API est déployée par Ansible et supervisée par PM2 en mode cluster, derrière
+Nginx. Procédures de déploiement, de rollback et de sauvegarde :
+[docs/RUNBOOK.md](../docs/RUNBOOK.md).
 
 ## Toutes les routes de l'API (26 chemins / 37 opérations)
 

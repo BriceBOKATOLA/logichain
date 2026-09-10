@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Camera, useCameraDevice, useCodeScanner } from 'react-native-vision-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { colors, spacing, radius, typography } from '../theme/theme';
 import PrimaryButton from '../components/PrimaryButton';
 import { useScanner } from '../hooks/useScanner';
@@ -12,15 +12,25 @@ const NEXT_STATE_LABEL = {
   in_maintenance: 'Marquer "En maintenance"',
 };
 
+// Types de codes reconnus, alignés sur l'étiquetage du matériel : QR pour les
+// fiches générées par le backend, Code 128 et EAN-13 pour le matériel loué
+// arrivant déjà étiqueté par le prestataire.
+const BARCODE_TYPES = ['qr', 'code128', 'ean13'];
+
 /**
  * ScanScreen — Vue : capture caméra + affichage. Toute la logique de résolution
  * d'item et de synchronisation vit dans useScanner()/SyncService (aucun appel réseau ici).
  * Peut aussi être ouvert directement sur un item précis via route.params.presetQr
  * (tap sur une tâche depuis TaskListScreen), sans passer par la caméra.
+ *
+ * S'appuie sur `expo-camera`, la bibliothèque effectivement déclarée dans les
+ * dépendances. La version précédente importait `react-native-vision-camera`,
+ * absent du package.json : l'écran de scan — cœur du métier — plantait au
+ * chargement et empêchait même la compilation du bundle.
  */
 export default function ScanScreen({ navigation, route }) {
   const { eventId } = useEventContext();
-  const device = useCameraDevice('back');
+  const [permission, requestPermission] = useCameraPermissions();
   const { handleScan, lastResult, error } = useScanner(eventId);
   const [busy, setBusy] = useState(false);
   const [pendingCode, setPendingCode] = useState(route.params?.presetQr ?? null);
@@ -29,13 +39,12 @@ export default function ScanScreen({ navigation, route }) {
     if (route.params?.presetQr) setPendingCode(route.params.presetQr);
   }, [route.params?.presetQr]);
 
-  const codeScanner = useCodeScanner({
-    codeTypes: ['qr', 'code-128', 'ean-13'],
-    onCodeScanned: (codes) => {
-      const value = codes[0]?.value;
-      if (value && !busy) setPendingCode(value);
+  const onBarcodeScanned = useCallback(
+    ({ data }) => {
+      if (data && !busy) setPendingCode(data);
     },
-  });
+    [busy],
+  );
 
   const confirmTransition = useCallback(
     async (toState) => {
@@ -48,18 +57,36 @@ export default function ScanScreen({ navigation, route }) {
     [pendingCode, handleScan],
   );
 
+  // La caméra reste active tant qu'aucun code n'attend de décision : sinon elle
+  // continuerait à lire en boucle et écraserait le code affiché à l'agent.
+  const cameraActive = permission?.granted && !pendingCode && !busy;
+
   return (
     <View style={styles.container}>
-      {device ? (
-        <Camera style={StyleSheet.absoluteFill} device={device} isActive codeScanner={codeScanner} />
+      {permission?.granted ? (
+        <CameraView
+          style={StyleSheet.absoluteFill}
+          facing="back"
+          barcodeScannerSettings={{ barcodeTypes: BARCODE_TYPES }}
+          onBarcodeScanned={cameraActive ? onBarcodeScanned : undefined}
+        />
       ) : (
         <View style={[StyleSheet.absoluteFill, styles.noCamera]}>
-          <Text style={styles.info}>Caméra indisponible sur ce terminal.</Text>
+          <Text style={styles.info}>
+            {permission
+              ? "L'accès à la caméra est nécessaire pour scanner le matériel."
+              : 'Initialisation de la caméra…'}
+          </Text>
+          {permission && !permission.granted && (
+            <View style={{ marginTop: spacing.md }}>
+              <PrimaryButton label="Autoriser la caméra" onPress={requestPermission} />
+            </View>
+          )}
         </View>
       )}
 
       <View style={styles.overlay}>
-        {device && (
+        {permission?.granted && (
           <>
             <View style={styles.frame} />
             <Text style={styles.hint}>Visez le QR code / code-barres du matériel</Text>
@@ -92,6 +119,16 @@ export default function ScanScreen({ navigation, route }) {
               disabled={busy}
             />
           </View>
+          <View style={{ marginTop: spacing.sm }}>
+            {/* Sans cette sortie, un code lu par erreur bloquerait la caméra
+                jusqu'à ce que l'agent choisisse une transition. */}
+            <PrimaryButton
+              label="Annuler"
+              variant="secondary"
+              onPress={() => setPendingCode(null)}
+              disabled={busy}
+            />
+          </View>
         </View>
       )}
 
@@ -108,8 +145,13 @@ export default function ScanScreen({ navigation, route }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  noCamera: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
-  info: { ...typography.body, textAlign: 'center', marginTop: spacing.xl },
+  noCamera: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    padding: spacing.xl,
+  },
+  info: { ...typography.body, textAlign: 'center' },
   overlay: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   frame: { width: 220, height: 220, borderWidth: 3, borderColor: colors.primary, borderRadius: radius.md },
   hint: {
