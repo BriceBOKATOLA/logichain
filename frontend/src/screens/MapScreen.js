@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import MapView, { Marker, Polygon } from 'react-native-maps';
+import ZoneMap from '../components/ZoneMap';
 import { colors, spacing, typography } from '../theme/theme';
 import { useEventContext } from '../context/EventContext';
 import { useMapData } from '../hooks/useMapData';
@@ -8,6 +8,10 @@ import { useMapData } from '../hooks/useMapData';
 /**
  * MapScreen — Vue PURE : affiche les zones GeoJSON et les items géolocalisés
  * fournis par useMapData(). Aucun appel réseau ici — uniquement du rendu.
+ *
+ * Le rendu cartographique lui-même est délégué à `ZoneMap`, dont
+ * l'implémentation diffère par plateforme (react-native-maps sur mobile,
+ * Leaflet sur web) : voir components/ZoneMap.js et ZoneMap.web.js.
  */
 export default function MapScreen() {
   const { eventId } = useEventContext();
@@ -37,27 +41,7 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
-      <MapView style={StyleSheet.absoluteFill} initialRegion={initialRegion}>
-        {zones.map((zone) => (
-          <Polygon
-            key={zone._id}
-            coordinates={zone.geometry.coordinates[0].map(([lng, lat]) => ({
-              latitude: lat,
-              longitude: lng,
-            }))}
-            strokeColor={colors.primary}
-            fillColor={colors.primary + '33'}
-          />
-        ))}
-        {items.map((item) => (
-          <Marker
-            key={item._id}
-            coordinate={{ latitude: item.location.coordinates[1], longitude: item.location.coordinates[0] }}
-            title={item.label}
-            description={item.state}
-          />
-        ))}
-      </MapView>
+      <ZoneMap zones={zones} items={items} initialRegion={initialRegion} />
     </View>
   );
 }

@@ -11,7 +11,18 @@ const prettier = require('eslint-config-prettier');
  */
 module.exports = [
   {
-    ignores: ['node_modules/**', 'android/**', 'ios/**', '.expo/**', 'coverage/**', 'babel.config.js'],
+    ignores: [
+      'node_modules/**',
+      'android/**',
+      'ios/**',
+      '.expo/**',
+      'coverage/**',
+      'web-build/**',
+      'babel.config.js',
+      // Config Node.js pur (pas de contexte navigateur/React Native) : même
+      // traitement que babel.config.js ci-dessus.
+      'metro.config.js',
+    ],
   },
 
   js.configs.recommended,

@@ -35,6 +35,7 @@ id_rsa.*
 # --- Build & artefacts -----------------------------------------------------
 dist/
 build/
+frontend/web-build/
 coverage/
 *.tsbuildinfo
 

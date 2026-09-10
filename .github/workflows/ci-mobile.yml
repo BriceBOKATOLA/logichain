@@ -100,7 +100,25 @@ jobs:
         run: npx --yes expo-doctor
         continue-on-error: true
 
-      - name: Compiler le bundle JavaScript
+      - name: Compiler le bundle JavaScript (Android)
         # Preuve que l'application se construit réellement : une erreur
         # d'import ou de syntaxe qui échapperait au linter est détectée ici.
         run: npx expo export --platform android --output-dir ./dist-check
+
+      - name: Compiler le bundle web
+        # Même contrôle pour la cible web (https://logichain.online), servie
+        # par Nginx. Vérifie en particulier que metro.config.js résout bien
+        # le binaire .wasm d'expo-sqlite (moteur SQLite web) et que le
+        # composant cartographique bascule sur sa variante Leaflet
+        # (ZoneMap.web.js) plutôt que react-native-maps, sans rendu web.
+        run: npm run build:web
+
+      - name: Publier le bundle web
+        # Conservé en artefact pour inspection en cas d'échec de déploiement,
+        # même si le serveur reconstruit lui-même le bundle à chaque
+        # déploiement (voir infra/ansible/roles/app_runtime).
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: frontend/web-build/
+          retention-days: 14

@@ -11,6 +11,13 @@
       "package": "com.logichainplatform",
       "versionCode": 1
     },
+    "web": {
+      "bundler": "metro",
+      "name": "LogiChain",
+      "shortName": "LogiChain",
+      "backgroundColor": "#0F1712",
+      "themeColor": "#0F1712"
+    },
     "plugins": ["expo-sqlite"]
   }
 }
