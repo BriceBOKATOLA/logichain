@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(git -C $root push -u origin main 2>&1)",
+      "PowerShell(\"helper global: \" + \\(git config --global credential.helper\\); \"helper system: \" + \\(git config --system credential.helper\\); \"---\"; $gcm = Get-Command git-credential-manager -ErrorAction SilentlyContinue; if \\($gcm\\) { \"GCM: $\\($gcm.Source\\)\" } else { $p = \"C:\\\\Program Files\\\\Git\\\\mingw64\\\\bin\\\\git-credential-manager.exe\"; if \\(Test-Path $p\\) { \"GCM: $p\" } else { \"GCM: introuvable\" } })"
+    ]
+  }
+}
