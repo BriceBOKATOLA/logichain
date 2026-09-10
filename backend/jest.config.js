@@ -16,12 +16,7 @@ module.exports = {
   // le téléchargement initial du binaire peut dépasser le timeout par défaut.
   testTimeout: 30000,
 
-  collectCoverageFrom: [
-    'src/**/*.js',
-    '!src/server.js',
-    '!src/docs/**',
-    '!src/config/swagger.js',
-  ],
+  collectCoverageFrom: ['src/**/*.js', '!src/server.js', '!src/docs/**', '!src/config/swagger.js'],
   coverageDirectory: 'coverage',
   coverageReporters: ['text-summary', 'lcov'],
 

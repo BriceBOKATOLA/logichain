@@ -11,7 +11,9 @@ class AuthController {
     try {
       const user = await authService.register(req.body);
       return new ApiResponse(201, user, 'Compte créé avec succès.').send(res);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   };
 
   /** POST /auth/login — Authentifie et délivre un couple de tokens JWT (access + refresh). */
@@ -19,7 +21,9 @@ class AuthController {
     try {
       const result = await authService.login(req.body);
       return new ApiResponse(200, result, 'Connexion réussie.').send(res);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   };
 
   /** POST /auth/refresh — Échange un refresh token valide contre un nouveau couple de tokens. */
@@ -27,7 +31,9 @@ class AuthController {
     try {
       const tokens = await authService.refresh(req.body.refreshToken);
       return new ApiResponse(200, tokens, 'Token rafraîchi.').send(res);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   };
 
   /** POST /auth/logout — Invalide la session courante (efface le refresh token stocké). */
@@ -35,7 +41,9 @@ class AuthController {
     try {
       await authService.logout(req.user.sub);
       return new ApiResponse(200, null, 'Déconnexion réussie.').send(res);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   };
 }
 

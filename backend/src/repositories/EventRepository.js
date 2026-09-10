@@ -14,12 +14,17 @@ class EventRepository extends BaseRepository {
    * Recherche la zone contenant un point donné (agent géolocalisé) via $geoIntersects.
    */
   async findZoneContainingPoint(eventId, [lng, lat]) {
-    const result = await this.model.findOne({
-      _id: eventId,
-      'zones.geometry': {
-        $geoIntersects: { $geometry: { type: 'Point', coordinates: [lng, lat] } },
-      },
-    }, { 'zones.$': 1 }).exec();
+    const result = await this.model
+      .findOne(
+        {
+          _id: eventId,
+          'zones.geometry': {
+            $geoIntersects: { $geometry: { type: 'Point', coordinates: [lng, lat] } },
+          },
+        },
+        { 'zones.$': 1 },
+      )
+      .exec();
     return result?.zones?.[0] || null;
   }
 }

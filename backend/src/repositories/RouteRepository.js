@@ -21,17 +21,19 @@ class RouteRepository extends BaseRepository {
   }
 
   async validateStop(routeId, stopId, userId, session = null) {
-    return this.model.findOneAndUpdate(
-      { _id: routeId, 'stops._id': stopId },
-      {
-        $set: {
-          'stops.$.validatedAt': new Date(),
-          'stops.$.validatedBy': userId,
+    return this.model
+      .findOneAndUpdate(
+        { _id: routeId, 'stops._id': stopId },
+        {
+          $set: {
+            'stops.$.validatedAt': new Date(),
+            'stops.$.validatedBy': userId,
+          },
+          $inc: { version: 1 },
         },
-        $inc: { version: 1 },
-      },
-      { new: true, session },
-    ).exec();
+        { new: true, session },
+      )
+      .exec();
   }
 }
 
