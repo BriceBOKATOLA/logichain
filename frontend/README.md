@@ -37,12 +37,42 @@ Service/Repository, exactement comme côté backend.
 
 ```bash
 npm install
-npx pod-install ios      # si build iOS
-npm run android           # ou npm run ios
+npm start                 # puis « a » pour Android, « i » pour iOS
 ```
 
-Adapter `BASE_URL` dans `src/services/ApiClient.js` et `SOCKET_URL` dans
-`src/services/SocketService.js` à l'adresse de votre backend LogiChain.
+Un **seul** fichier est à adapter pour brancher l'application sur un backend :
+[`src/config/env.js`](src/config/env.js). `ApiClient` (HTTP) et `SocketService`
+(WebSocket) l'importent tous les deux — aucune URL n'est dupliquée ailleurs.
+
+| Cible d'exécution   | Valeur de `HOST`              |
+| ------------------- | ----------------------------- |
+| Émulateur Android   | `http://10.0.2.2:4000`        |
+| Simulateur iOS      | `http://localhost:4000`       |
+| Téléphone physique  | `http://<IP_LAN_DU_PC>:4000`  |
+| Production          | `https://logichain.online`    |
+
+> Sur un téléphone physique, `localhost` désigne le téléphone lui-même : il
+> faut impérativement l'IP LAN du poste de développement, et autoriser le port
+> 4000 dans le pare-feu.
+
+## Qualité et tests
+
+```bash
+npm run lint             # ESLint — zéro avertissement toléré
+npm run format:check     # Prettier
+npm test                 # 13 tests de la logique Offline-First
+npm run test:ci          # avec rapport de couverture
+```
+
+Les tests utilisent le préréglage `jest-expo` ; les modules natifs (SQLite,
+caméra, GPS, stockage) sont neutralisés dans
+[`jest.setup.js`](jest.setup.js), ce qui rend la logique de synchronisation
+testable sur un runner d'intégration continue sans appareil.
+
+La suite couvre le cœur du fonctionnement Offline-First : application
+optimiste avant l'empilement, mémorisation de l'état d'origine pour le
+rollback, unicité des identifiants d'action, **absence de rollback automatique**
+sur conflit, et non-perte des actions en cas de panne réseau.
 
 ## Design
 
