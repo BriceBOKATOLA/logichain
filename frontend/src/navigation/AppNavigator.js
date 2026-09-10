@@ -19,6 +19,31 @@ const Tab = createBottomTabNavigator();
 
 const ICONS = { Dashboard: 'home', Tasks: 'list', Scan: 'maximize', Sync: 'refresh-cw' };
 
+/**
+ * Configuration des routes web (et des liens profonds natifs). Le tableau de
+ * bord est mappé sur le chemin racine ("") : https://logichain.online/ affiche
+ * directement le Dashboard plutôt qu'un chemin /dashboard redondant avec la
+ * racine du domaine.
+ */
+const linking = {
+  prefixes: ['https://logichain.online', 'https://www.logichain.online'],
+  config: {
+    screens: {
+      Login: 'login',
+      Main: {
+        screens: {
+          Dashboard: '',
+          Tasks: 'tasks',
+          Scan: 'scan',
+          Sync: 'sync',
+        },
+      },
+      Anomaly: 'anomalie',
+      Map: 'carte',
+    },
+  },
+};
+
 function MainTabs() {
   return (
     <Tab.Navigator
@@ -48,7 +73,7 @@ export default function AppNavigator() {
   if (loading) return null;
 
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking} fallback={null}>
       <Stack.Navigator
         screenOptions={{
           headerStyle: { backgroundColor: colors.surface },

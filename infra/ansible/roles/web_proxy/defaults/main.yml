@@ -4,6 +4,11 @@ app_port: 4000
 app_domain: ""
 app_domain_aliases: []
 letsencrypt_email: ""
+# Ces deux valeurs sont normalement héritées des group_vars (elles pilotent
+# aussi le rôle app_runtime) ; les redéfinir ici en repli permet à ce rôle de
+# tourner seul, sans dépendre d'un autre fichier de variables.
+app_current_dir: /opt/logichain/current
+app_frontend_subdir: frontend
 nginx_client_max_body_size: 10m
 # Zone de limitation de débit Nginx : première ligne de défense, en amont du
 # rate-limit applicatif d'Express (qui, lui, comprend les rôles et les routes).

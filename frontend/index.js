@@ -1,8 +1,11 @@
 /**
  * @format
  */
-import { AppRegistry } from 'react-native';
+import { registerRootComponent } from 'expo';
 import App from './App';
-import { name as appName } from './app.json';
 
-AppRegistry.registerComponent(appName, () => App);
+// `registerRootComponent` (et non `AppRegistry.registerComponent` seul) est
+// indispensable pour le web : c'est lui qui monte réellement l'application
+// dans le DOM (`AppRegistry.runApplication` sur l'élément racine), en plus
+// d'enregistrer le composant pour Android/iOS.
+registerRootComponent(App);

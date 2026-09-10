@@ -22,3 +22,6 @@ app_repo_version: "{{ app_repo_branch }}"
 
 # Le code de l'API vit dans le sous-dossier backend/ du mono-repo.
 app_backend_subdir: backend
+# L'application mobile ET sa déclinaison web (même code source React Native +
+# react-native-web) vivent dans frontend/.
+app_frontend_subdir: frontend
