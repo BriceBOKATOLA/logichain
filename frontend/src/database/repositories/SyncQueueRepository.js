@@ -12,16 +12,25 @@ class SyncQueueRepository {
         (client_action_id, event_id, item_id, from_state, expected_version, to_state, lat, lng, note, occurred_at, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
       [
-        action.clientActionId, action.eventId, action.itemId, action.fromState ?? null,
-        action.expectedVersion, action.toState,
-        action.location?.coordinates?.[1] ?? null, action.location?.coordinates?.[0] ?? null,
-        action.note ?? '', action.occurredAt,
+        action.clientActionId,
+        action.eventId,
+        action.itemId,
+        action.fromState ?? null,
+        action.expectedVersion,
+        action.toState,
+        action.location?.coordinates?.[1] ?? null,
+        action.location?.coordinates?.[0] ?? null,
+        action.note ?? '',
+        action.occurredAt,
       ],
     );
   }
 
   async getPending(eventId) {
-    const result = await db.execute("SELECT * FROM sync_queue WHERE event_id = ? AND status = 'pending' ORDER BY occurred_at ASC", [eventId]);
+    const result = await db.execute(
+      "SELECT * FROM sync_queue WHERE event_id = ? AND status = 'pending' ORDER BY occurred_at ASC",
+      [eventId],
+    );
     const rows = [];
     for (let i = 0; i < result.rows.length; i += 1) rows.push(this._toAction(result.rows.item(i)));
     return rows;
@@ -44,7 +53,10 @@ class SyncQueueRepository {
   }
 
   async countPending(eventId) {
-    const result = await db.execute("SELECT COUNT(*) as c FROM sync_queue WHERE event_id = ? AND status = 'pending'", [eventId]);
+    const result = await db.execute(
+      "SELECT COUNT(*) as c FROM sync_queue WHERE event_id = ? AND status = 'pending'",
+      [eventId],
+    );
     return result.rows.item(0).c;
   }
 
@@ -53,18 +65,25 @@ class SyncQueueRepository {
   }
 
   async markConflict(clientActionId, reason) {
-    await db.execute("UPDATE sync_queue SET status = 'conflict', conflict_reason = ? WHERE client_action_id = ?", [reason, clientActionId]);
+    await db.execute(
+      "UPDATE sync_queue SET status = 'conflict', conflict_reason = ? WHERE client_action_id = ?",
+      [reason, clientActionId],
+    );
   }
 
   async getConflicts(eventId) {
-    const result = await db.execute("SELECT * FROM sync_queue WHERE event_id = ? AND status = 'conflict'", [eventId]);
+    const result = await db.execute("SELECT * FROM sync_queue WHERE event_id = ? AND status = 'conflict'", [
+      eventId,
+    ]);
     const rows = [];
     for (let i = 0; i < result.rows.length; i += 1) rows.push(this._toAction(result.rows.item(i)));
     return rows;
   }
 
   async getById(clientActionId) {
-    const result = await db.execute('SELECT * FROM sync_queue WHERE client_action_id = ? LIMIT 1', [clientActionId]);
+    const result = await db.execute('SELECT * FROM sync_queue WHERE client_action_id = ? LIMIT 1', [
+      clientActionId,
+    ]);
     return result.rows.length ? this._toAction(result.rows.item(0)) : null;
   }
 
@@ -75,7 +94,10 @@ class SyncQueueRepository {
 
   /** Repasse une action en conflit au statut "pending" pour la rejouer avec la même version. */
   async requeue(clientActionId) {
-    await db.execute("UPDATE sync_queue SET status = 'pending', conflict_reason = NULL WHERE client_action_id = ?", [clientActionId]);
+    await db.execute(
+      "UPDATE sync_queue SET status = 'pending', conflict_reason = NULL WHERE client_action_id = ?",
+      [clientActionId],
+    );
   }
 
   _toAction(row) {

@@ -9,7 +9,10 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    authService.getCurrentUser().then((u) => { setUser(u); setLoading(false); });
+    authService.getCurrentUser().then((u) => {
+      setUser(u);
+      setLoading(false);
+    });
 
     // Si le refresh token finit par être définitivement invalide/expiré,
     // ApiClient nous prévient pour qu'on ramène l'UI à l'écran de connexion
@@ -28,11 +31,7 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
-  return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuthContext() {

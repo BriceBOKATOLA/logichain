@@ -43,7 +43,9 @@ export default function AnomalyDeclarationScreen({ route, navigation }) {
       />
       {error && <Text style={styles.error}>{error}</Text>}
       <PrimaryButton label="Valider la déclaration" variant="danger" onPress={submit} loading={loading} />
-      <Text style={styles.info}>La déclaration est enregistrée localement et sera synchronisée automatiquement, même hors-ligne.</Text>
+      <Text style={styles.info}>
+        La déclaration est enregistrée localement et sera synchronisée automatiquement, même hors-ligne.
+      </Text>
     </View>
   );
 }
@@ -53,8 +55,15 @@ const styles = StyleSheet.create({
   title: { ...typography.h1, fontSize: 22 },
   subtitle: { ...typography.caption, marginTop: spacing.xs, marginBottom: spacing.lg },
   input: {
-    backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
-    padding: spacing.md, color: colors.textPrimary, textAlignVertical: 'top', marginBottom: spacing.lg, minHeight: 100,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    color: colors.textPrimary,
+    textAlignVertical: 'top',
+    marginBottom: spacing.lg,
+    minHeight: 100,
   },
   error: { color: colors.danger, ...typography.caption, marginBottom: spacing.md },
   info: { ...typography.caption, textAlign: 'center', marginTop: spacing.lg },

@@ -1,0 +1,41 @@
+# {{ ansible_managed }}
+# Durcissement SSH LogiChain — déposé dans /etc/ssh/sshd_config.d/ plutôt que
+# d'éditer sshd_config, afin qu'une mise à jour du paquet openssh-server ne
+# réinitialise pas ces réglages.
+
+Port {{ ssh_port }}
+
+# Plus aucune connexion root directe : l'administration passe par « {{ app_user }} » puis sudo,
+# ce qui rend chaque action imputable à une personne identifiée.
+PermitRootLogin no
+
+# Authentification exclusivement par clé : supprime toute surface d'attaque
+# par force brute sur mot de passe.
+PasswordAuthentication no
+PermitEmptyPasswords no
+ChallengeResponseAuthentication no
+KbdInteractiveAuthentication no
+PubkeyAuthentication yes
+
+# Limite les tentatives et les sessions non authentifiées simultanées.
+MaxAuthTries 3
+MaxSessions 10
+LoginGraceTime 30
+
+# Déconnexion des sessions inactives (2 tentatives x 300 s = 10 min).
+ClientAliveInterval 300
+ClientAliveCountMax 2
+
+# Fonctionnalités inutiles pour un serveur applicatif : autant de vecteurs en moins.
+X11Forwarding no
+AllowAgentForwarding no
+AllowTcpForwarding no
+PermitTunnel no
+
+# Seuls ces comptes peuvent ouvrir une session SSH.
+AllowUsers {{ app_user }}
+
+# Algorithmes modernes uniquement.
+KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512
+Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com
+MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com

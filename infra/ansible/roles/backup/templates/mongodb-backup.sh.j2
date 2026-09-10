@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# {{ ansible_managed }}
+#
+# Sauvegarde de la base MongoDB LogiChain.
+#   Usage : logichain-backup [étiquette]
+#   L'étiquette facultative sert à repérer une sauvegarde manuelle prise juste
+#   avant un déploiement risqué (ex : logichain-backup avant-migration).
+set -euo pipefail
+
+# shellcheck source=/dev/null
+source /etc/logichain/backup.env
+
+LABEL="${1:-auto}"
+TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
+ARCHIVE="${BACKUP_DIR}/logichain-${TIMESTAMP}-${LABEL}.archive.gz"
+
+mkdir -p "$BACKUP_DIR"
+
+echo "[$(date --iso-8601=seconds)] Début de la sauvegarde -> ${ARCHIVE}"
+
+# --archive + --gzip produisent un fichier unique compressé, bien plus simple
+# à transférer et à restaurer qu'une arborescence BSON.
+mongodump \
+  --host "$MONGO_HOST" \
+  --port "$MONGO_PORT" \
+  --username "$MONGO_USER" \
+  --password "$MONGO_PASSWORD" \
+  --authenticationDatabase "$MONGO_AUTH_DB" \
+  --db "$MONGO_DB" \
+  --archive="$ARCHIVE" \
+  --gzip \
+  --quiet
+
+chmod 600 "$ARCHIVE"
+
+# Contrôle d'intégrité immédiat : une archive gzip tronquée (disque plein,
+# processus interrompu) serait inutilisable le jour de la restauration.
+if ! gzip -t "$ARCHIVE" 2>/dev/null; then
+  echo "[$(date --iso-8601=seconds)] ERREUR : archive corrompue, suppression." >&2
+  rm -f "$ARCHIVE"
+  exit 1
+fi
+
+SIZE="$(du -h "$ARCHIVE" | cut -f1)"
+echo "[$(date --iso-8601=seconds)] Sauvegarde terminée (${SIZE})"
+
+# Rotation : suppression des archives dépassant la durée de rétention.
+DELETED="$(find "$BACKUP_DIR" -name 'logichain-*.archive.gz' -mtime "+${RETENTION_DAYS}" -print -delete | wc -l)"
+echo "[$(date --iso-8601=seconds)] Rotation : ${DELETED} archive(s) de plus de ${RETENTION_DAYS} jours supprimée(s)"
+
+# Garde-fou : on refuse de laisser le disque se remplir silencieusement.
+USAGE="$(df --output=pcent "$BACKUP_DIR" | tail -1 | tr -d ' %')"
+if [ "$USAGE" -gt 85 ]; then
+  echo "[$(date --iso-8601=seconds)] ALERTE : partition de sauvegarde remplie à ${USAGE}%" >&2
+fi

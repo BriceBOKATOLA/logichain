@@ -1,0 +1,56 @@
+---
+# ===========================================================================
+# Playbook de SAUVEGARDE MANUELLE — à lancer avant toute opération sensible
+# (migration de schéma, montée de version MongoDB, intervention en base).
+#
+#   ansible-playbook -i inventories/production/hosts.yml playbooks/backup.yml
+#   ansible-playbook ... playbooks/backup.yml -e backup_label=avant-migration
+#
+# Pour rapatrier l'archive sur le poste de l'équipe, ajouter :
+#   -e fetch_backup=true
+# ===========================================================================
+
+- name: Déclencher une sauvegarde MongoDB
+  hosts: logichain_servers
+  become: true
+
+  vars:
+    backup_label: manuelle
+    fetch_backup: false
+
+  tasks:
+    - name: Lancer la sauvegarde
+      ansible.builtin.command:
+        cmd: "/usr/local/bin/logichain-backup {{ backup_label }}"
+      register: backup_run
+      changed_when: true
+
+    - name: Afficher le journal de la sauvegarde
+      ansible.builtin.debug:
+        var: backup_run.stdout_lines
+
+    - name: Identifier l'archive la plus récente
+      ansible.builtin.find:
+        paths: "{{ backup_dir }}"
+        patterns: "logichain-*.archive.gz"
+      register: archives
+
+    - name: Retenir la dernière archive
+      ansible.builtin.set_fact:
+        latest_archive: "{{ (archives.files | sort(attribute='mtime') | last).path }}"
+
+    - name: Rapatrier l'archive sur le poste local
+      # Une sauvegarde qui ne vit que sur le serveur sauvegardé ne protège pas
+      # d'une perte du serveur : ce rapatriement est la copie hors-site.
+      ansible.builtin.fetch:
+        src: "{{ latest_archive }}"
+        dest: "../../backups/{{ inventory_hostname }}/"
+        flat: true
+      when: fetch_backup | bool
+
+    - name: Récapitulatif
+      ansible.builtin.debug:
+        msg:
+          - "Archive : {{ latest_archive }}"
+          - "Total sur le serveur : {{ archives.files | length }} sauvegarde(s)"
+          - "{{ 'Copie locale : infra/backups/' ~ inventory_hostname ~ '/' if fetch_backup | bool else 'Archive conservée sur le serveur uniquement.' }}"

@@ -34,7 +34,7 @@ export function EventProvider({ children }) {
       } else {
         setError(
           err.response?.status === 404
-            ? "Aucun événement actif côté serveur pour le moment."
+            ? 'Aucun événement actif côté serveur pour le moment.'
             : "Impossible de joindre le serveur et aucun événement n'est disponible en cache.",
         );
       }
@@ -57,7 +57,9 @@ export function EventProvider({ children }) {
   }, [user, resolveActiveEvent]);
 
   return (
-    <EventContext.Provider value={{ event, eventId: event?._id, loading, error, refresh: resolveActiveEvent }}>
+    <EventContext.Provider
+      value={{ event, eventId: event?._id, loading, error, refresh: resolveActiveEvent }}
+    >
       {children}
     </EventContext.Provider>
   );

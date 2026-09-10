@@ -41,7 +41,10 @@ export default function MapScreen() {
         {zones.map((zone) => (
           <Polygon
             key={zone._id}
-            coordinates={zone.geometry.coordinates[0].map(([lng, lat]) => ({ latitude: lat, longitude: lng }))}
+            coordinates={zone.geometry.coordinates[0].map(([lng, lat]) => ({
+              latitude: lat,
+              longitude: lng,
+            }))}
             strokeColor={colors.primary}
             fillColor={colors.primary + '33'}
           />
@@ -61,6 +64,12 @@ export default function MapScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  center: { flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
+  center: {
+    flex: 1,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xl,
+  },
   text: { ...typography.body, textAlign: 'center', marginTop: spacing.md },
 });

@@ -1,0 +1,43 @@
+// {{ ansible_managed }}
+// Configuration PM2 de l'API LogiChain — générée par Ansible à chaque release.
+module.exports = {
+  apps: [
+    {
+      name: '{{ pm2_app_name }}',
+      script: 'src/server.js',
+      cwd: '{{ app_current_dir }}/{{ app_backend_subdir }}',
+
+      // Mode cluster : PM2 répartit les connexions entre les workers et permet
+      // le rechargement sans coupure (`pm2 reload`). Le nombre d'instances est
+      // aligné sur le nombre de vCPU du serveur.
+      exec_mode: 'cluster',
+      instances: {{ pm2_instances }},
+
+      // Filet de sécurité contre une fuite mémoire : le worker est recyclé
+      // proprement plutôt que de faire tomber le serveur par OOM.
+      max_memory_restart: '{{ pm2_max_memory_restart }}',
+
+      // Laisse le temps à l'arrêt gracieux implémenté dans src/server.js
+      // (fermeture du serveur HTTP puis de la connexion MongoDB).
+      kill_timeout: 10000,
+      listen_timeout: 10000,
+      wait_ready: false,
+
+      // Empêche une boucle de redémarrage infinie si l'application refuse de
+      // démarrer (ex : variable d'environnement manquante) : PM2 s'arrête au
+      // bout de 10 tentatives et l'état est visible dans `pm2 list`.
+      max_restarts: 10,
+      restart_delay: 4000,
+      autorestart: true,
+
+      env: {
+        NODE_ENV: 'production',
+      },
+
+      error_file: '{{ app_shared_dir }}/logs/{{ pm2_app_name }}-error.log',
+      out_file: '{{ app_shared_dir }}/logs/{{ pm2_app_name }}-out.log',
+      merge_logs: true,
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+    },
+  ],
+};

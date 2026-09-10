@@ -1,0 +1,161 @@
+---
+# ===========================================================================
+# Rôle Web & Proxy — Nginx en reverse proxy devant l'API Node.js
+#
+# Le déploiement TLS se fait en deux temps, ce qui est la seule façon fiable
+# d'automatiser Let's Encrypt :
+#   1. Nginx est configuré en HTTP seul et sert le challenge ACME ;
+#   2. Certbot obtient le certificat, puis la configuration HTTPS est déposée.
+# Sans cet ordre, Nginx refuserait de démarrer en pointant vers un certificat
+# qui n'existe pas encore, et le challenge ne pourrait jamais aboutir.
+# ===========================================================================
+
+- name: Installer Nginx
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+
+- name: Retirer le site par défaut de Nginx
+  # Sans cela, une requête sur l'IP nue tomberait sur la page « Welcome to
+  # nginx », qui divulgue inutilement la pile technique.
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: reload nginx
+
+- name: Créer la racine du challenge ACME
+  ansible.builtin.file:
+    path: /var/www/letsencrypt
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: "0755"
+
+- name: Déployer les réglages Nginx partagés
+  ansible.builtin.template:
+    src: logichain-common.conf.j2
+    dest: /etc/nginx/conf.d/logichain-common.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload nginx
+
+# --- Étape 1 : vhost HTTP ---------------------------------------------------
+
+- name: Déterminer si un certificat TLS est déjà présent
+  ansible.builtin.stat:
+    path: "/etc/letsencrypt/live/{{ app_domain }}/fullchain.pem"
+  register: tls_certificate
+  when: app_domain | length > 0
+
+- name: Définir l'état TLS
+  ansible.builtin.set_fact:
+    tls_enabled: "{{ (app_domain | length > 0) and (tls_certificate.stat.exists | default(false)) }}"
+    tls_requested: "{{ (app_domain | length > 0) and (letsencrypt_email | length > 0) }}"
+
+- name: Déployer le vhost de l'API
+  ansible.builtin.template:
+    src: logichain-api.conf.j2
+    dest: /etc/nginx/sites-available/logichain-api.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload nginx
+
+- name: Activer le vhost de l'API
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/logichain-api.conf
+    dest: /etc/nginx/sites-enabled/logichain-api.conf
+    state: link
+  notify: reload nginx
+
+- name: Valider la configuration Nginx complète
+  # `validate:` sur le module template ne teste que le fichier temporaire hors
+  # de son contexte : inutile pour un vhost qui dépend de conf.d et de
+  # sites-enabled. On teste donc la configuration réellement en place, APRÈS
+  # activation du lien symbolique mais AVANT le rechargement. Une erreur ici
+  # fait échouer le playbook sans jamais toucher au service en cours.
+  ansible.builtin.command:
+    cmd: nginx -t
+  changed_when: false
+
+- name: Activer et démarrer Nginx
+  ansible.builtin.service:
+    name: nginx
+    state: started
+    enabled: true
+
+- name: Appliquer la configuration HTTP avant la demande de certificat
+  ansible.builtin.meta: flush_handlers
+
+# --- Étape 2 : certificat Let's Encrypt -------------------------------------
+
+- name: Obtenir et installer le certificat TLS
+  when: tls_requested and not tls_enabled
+  block:
+    - name: Installer Certbot
+      ansible.builtin.apt:
+        name:
+          - certbot
+          - python3-certbot-nginx
+        state: present
+
+    - name: Demander le certificat à Let's Encrypt
+      # `--webroot` : le challenge est servi par le vhost HTTP déjà en ligne,
+      # sans arrêter Nginx. `creates` garantit l'idempotence — la commande ne
+      # sera plus jamais rejouée une fois le certificat obtenu.
+      ansible.builtin.command:
+        cmd: >-
+          certbot certonly --webroot
+          --webroot-path /var/www/letsencrypt
+          --domain {{ app_domain }}
+          --email {{ letsencrypt_email }}
+          --agree-tos --non-interactive --no-eff-email
+        creates: "/etc/letsencrypt/live/{{ app_domain }}/fullchain.pem"
+      register: certbot_result
+
+    - name: Confirmer la présence du certificat
+      ansible.builtin.stat:
+        path: "/etc/letsencrypt/live/{{ app_domain }}/fullchain.pem"
+      register: tls_certificate_after
+
+    - name: Réévaluer l'état TLS
+      ansible.builtin.set_fact:
+        tls_enabled: "{{ tls_certificate_after.stat.exists }}"
+
+    - name: Redéployer le vhost en HTTPS
+      ansible.builtin.template:
+        src: logichain-api.conf.j2
+        dest: /etc/nginx/sites-available/logichain-api.conf
+        owner: root
+        group: root
+        mode: "0644"
+      when: tls_enabled
+      notify: reload nginx
+
+    - name: Valider la configuration Nginx en HTTPS
+      ansible.builtin.command:
+        cmd: nginx -t
+      changed_when: false
+      when: tls_enabled
+
+  rescue:
+    - name: Signaler l'échec de l'obtention du certificat sans bloquer le déploiement
+      # Un DNS pas encore propagé ne doit pas faire échouer tout le playbook :
+      # l'API reste servie en HTTP et le certificat sera obtenu au prochain
+      # passage. Le message reste visible dans le récapitulatif d'exécution.
+      ansible.builtin.debug:
+        msg: >-
+          Certificat Let's Encrypt NON obtenu pour {{ app_domain }}.
+          Vérifiez que l'enregistrement DNS A pointe bien vers ce serveur,
+          puis relancez le playbook. L'API reste accessible en HTTP.
+
+- name: Vérifier que le renouvellement automatique est planifié
+  # Le paquet Debian installe un timer systemd ; on s'assure qu'il est actif,
+  # faute de quoi le certificat expirerait au bout de 90 jours.
+  ansible.builtin.systemd:
+    name: certbot.timer
+    enabled: true
+    state: started
+  when: tls_enabled
+  failed_when: false
