@@ -40,9 +40,9 @@ describe('config/env — validation stricte', () => {
   });
 
   it('refuse les secrets de démonstration en production', () => {
-    expect(() =>
-      loadEnv({ ...base, JWT_ACCESS_SECRET: 'change_me_access_secret' }),
-    ).toThrow(/Secrets par défaut interdits/);
+    expect(() => loadEnv({ ...base, JWT_ACCESS_SECRET: 'change_me_access_secret' })).toThrow(
+      /Secrets par défaut interdits/,
+    );
   });
 
   it('refuse deux secrets JWT identiques en production', () => {

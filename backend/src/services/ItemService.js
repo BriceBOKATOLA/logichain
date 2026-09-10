@@ -19,7 +19,16 @@ class ItemService {
     return this.repository.create({ ...entity });
   }
 
-  async scanTransition({ itemId, expectedVersion, toState, userId, location, offline = false, occurredAt, note }) {
+  async scanTransition({
+    itemId,
+    expectedVersion,
+    toState,
+    userId,
+    location,
+    offline = false,
+    occurredAt,
+    note,
+  }) {
     const current = await this.repository.findById(itemId);
     if (!current) throw ApiError.notFound('Item introuvable.');
 
@@ -38,18 +47,17 @@ class ItemService {
       note,
     };
 
-    const updated = await this.repository.transitionState(
-      itemId,
-      expectedVersion,
-      historyEntry,
-      { location: location || current.location },
-    );
+    const updated = await this.repository.transitionState(itemId, expectedVersion, historyEntry, {
+      location: location || current.location,
+    });
 
     await monitoringRepository.recordMetric(current.eventId, 'scan', 1, { itemId, toState });
 
     if (toState === 'anomaly') {
       notificationService.notifyEvent(current.eventId, 'anomaly-declared', {
-        itemId, label: current.label, location,
+        itemId,
+        label: current.label,
+        location,
       });
     }
 
@@ -67,7 +75,11 @@ class ItemService {
     for (const action of actions) {
       try {
         const updated = await this.scanTransition({ ...action, userId, offline: true });
-        results.applied.push({ clientActionId: action.clientActionId, itemId: updated._id, version: updated.version });
+        results.applied.push({
+          clientActionId: action.clientActionId,
+          itemId: updated._id,
+          version: updated.version,
+        });
       } catch (err) {
         results.conflicts.push({
           clientActionId: action.clientActionId,

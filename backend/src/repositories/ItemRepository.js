@@ -27,15 +27,17 @@ class ItemRepository extends BaseRepository {
   }
 
   async findNearby(eventId, [lng, lat], maxDistanceMeters = 500) {
-    return this.model.find({
-      eventId,
-      location: {
-        $near: {
-          $geometry: { type: 'Point', coordinates: [lng, lat] },
-          $maxDistance: maxDistanceMeters,
+    return this.model
+      .find({
+        eventId,
+        location: {
+          $near: {
+            $geometry: { type: 'Point', coordinates: [lng, lat] },
+            $maxDistance: maxDistanceMeters,
+          },
         },
-      },
-    }).exec();
+      })
+      .exec();
   }
 
   /**
@@ -86,11 +88,14 @@ class ItemRepository extends BaseRepository {
    */
   async detectBottlenecks(eventId, thresholdMinutes = 60) {
     const threshold = new Date(Date.now() - thresholdMinutes * 60 * 1000);
-    return this.model.find({
-      eventId,
-      state: { $in: ['in_transit', 'anomaly'] },
-      updatedAt: { $lte: threshold },
-    }).select('label qrCode state updatedAt').exec();
+    return this.model
+      .find({
+        eventId,
+        state: { $in: ['in_transit', 'anomaly'] },
+        updatedAt: { $lte: threshold },
+      })
+      .select('label qrCode state updatedAt')
+      .exec();
   }
 }
 

@@ -52,17 +52,17 @@ dans `assets/qrcodes/` (correspondant aux items du seed) — pratique pour teste
 
 CRUD complet sur chaque ressource métier (Create / Read / Update / Delete) :
 
-| Ressource | Create | Read | Update | Delete |
-|---|---|---|---|---|
-| **Auth** | `POST /auth/register` | — | `POST /auth/refresh` | `POST /auth/logout` |
-| **Users** *(admin)* | via `/auth/register` | `GET /users`, `GET /users/:id` | `PATCH /users/:id` | `DELETE /users/:id` *(désactivation)* |
-| **Events** | `POST /events` | `GET /events`, `/events/active`, `/events/:id` | `PATCH /events/:id` | `DELETE /events/:id` *(refusé si items rattachés)* |
-| **Zones** | `POST /events/:id/zones` | `GET /events/:id/agent-zone` | — | — |
-| **Items** | `POST /events/:eventId/items` | `GET .../items`, `/qr/:qrCode`, `/:id` | `PATCH /:id` *(métadonnées)*, `PATCH /:id/scan`, `PATCH /:id/anomaly` | `DELETE /:id` |
-| **Sync offline** | — | `GET .../items?updatedSince=` *(delta-sync)* | `POST .../items/sync` *(lot d'actions)* | — |
-| **Routes (feuilles)** | `POST /routes` | `GET /routes` *(admin, tous transporteurs)*, `/routes/transporter/:id`, `/routes/:id` | `PATCH /routes/:id`, `PATCH /routes/:id/stops/:stopId/validate` | `DELETE /routes/:id` |
-| **Monitoring** | — | `GET .../monitoring/{stock,carbon,carbon/history,bottlenecks}` | — | — |
-| **Realtime** | — | `GET /realtime/stream/:eventId` *(SSE)* | — | — |
+| Ressource             | Create                        | Read                                                                                  | Update                                                                | Delete                                             |
+| --------------------- | ----------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------- |
+| **Auth**              | `POST /auth/register`         | —                                                                                     | `POST /auth/refresh`                                                  | `POST /auth/logout`                                |
+| **Users** _(admin)_   | via `/auth/register`          | `GET /users`, `GET /users/:id`                                                        | `PATCH /users/:id`                                                    | `DELETE /users/:id` _(désactivation)_              |
+| **Events**            | `POST /events`                | `GET /events`, `/events/active`, `/events/:id`                                        | `PATCH /events/:id`                                                   | `DELETE /events/:id` _(refusé si items rattachés)_ |
+| **Zones**             | `POST /events/:id/zones`      | `GET /events/:id/agent-zone`                                                          | —                                                                     | —                                                  |
+| **Items**             | `POST /events/:eventId/items` | `GET .../items`, `/qr/:qrCode`, `/:id`                                                | `PATCH /:id` _(métadonnées)_, `PATCH /:id/scan`, `PATCH /:id/anomaly` | `DELETE /:id`                                      |
+| **Sync offline**      | —                             | `GET .../items?updatedSince=` _(delta-sync)_                                          | `POST .../items/sync` _(lot d'actions)_                               | —                                                  |
+| **Routes (feuilles)** | `POST /routes`                | `GET /routes` _(admin, tous transporteurs)_, `/routes/transporter/:id`, `/routes/:id` | `PATCH /routes/:id`, `PATCH /routes/:id/stops/:stopId/validate`       | `DELETE /routes/:id`                               |
+| **Monitoring**        | —                             | `GET .../monitoring/{stock,carbon,carbon/history,bottlenecks}`                        | —                                                                     | —                                                  |
+| **Realtime**          | —                             | `GET /realtime/stream/:eventId` _(SSE)_                                               | —                                                                     | —                                                  |
 
 Détail complet, schémas et exemples : Swagger UI (`/api-docs`).
 
@@ -82,6 +82,7 @@ Détail complet, schémas et exemples : Swagger UI (`/api-docs`).
 ### `unable to get image 'mongo:7'` / `dockerDesktopLinuxEngine... cannot find the file`
 
 Docker Desktop n'est pas démarré (l'application, pas juste installée). Sur Windows :
+
 1. Lance l'application **Docker Desktop** depuis le menu Démarrer et attends que l'icône
    dans la barre des tâches indique "Engine running" (peut prendre 1-2 minutes).
 2. Vérifie que Docker est en mode **Linux containers** (clic droit sur l'icône →

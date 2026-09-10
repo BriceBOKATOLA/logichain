@@ -42,7 +42,7 @@ const events = [
   {
     _id: ids.event1,
     name: 'Festival Les Ondes du Havre',
-    description: "Festival éco-responsable en plein air, 3 jours, zones montage/démontage sensibles.",
+    description: 'Festival éco-responsable en plein air, 3 jours, zones montage/démontage sensibles.',
     startDate: new Date('2026-09-10T08:00:00.000Z'),
     endDate: new Date('2026-09-13T22:00:00.000Z'),
     status: 'setup',
@@ -56,7 +56,15 @@ const events = [
         code: 'Z-SCENE',
         geometry: {
           type: 'Polygon',
-          coordinates: [[[0.1075, 49.4938], [0.109, 49.4938], [0.109, 49.4948], [0.1075, 49.4948], [0.1075, 49.4938]]],
+          coordinates: [
+            [
+              [0.1075, 49.4938],
+              [0.109, 49.4938],
+              [0.109, 49.4948],
+              [0.1075, 49.4948],
+              [0.1075, 49.4938],
+            ],
+          ],
         },
       },
       {
@@ -65,7 +73,15 @@ const events = [
         code: 'Z-LOGI',
         geometry: {
           type: 'Polygon',
-          coordinates: [[[0.105, 49.493], [0.107, 49.493], [0.107, 49.4938], [0.105, 49.4938], [0.105, 49.493]]],
+          coordinates: [
+            [
+              [0.105, 49.493],
+              [0.107, 49.493],
+              [0.107, 49.4938],
+              [0.105, 49.4938],
+              [0.105, 49.493],
+            ],
+          ],
         },
       },
     ],
@@ -102,7 +118,13 @@ const items = [
     assignedTo: ids.userAgent1,
     version: 3,
     history: [
-      { action: 'created', byUser: ids.userAdmin, at: new Date('2026-08-20T09:00:00.000Z'), note: '', clientEventId: null },
+      {
+        action: 'created',
+        byUser: ids.userAdmin,
+        at: new Date('2026-08-20T09:00:00.000Z'),
+        note: '',
+        clientEventId: null,
+      },
       {
         action: 'moved',
         byUser: ids.userAgent1,
@@ -194,12 +216,36 @@ const items = [
 ];
 
 const monitoringLogs = [
-  { timestamp: new Date('2026-08-27T08:00:00.000Z'), metadata: { event: ids.event1, metric: 'scan_rate', zoneCode: 'Z-LOGI' }, value: 42 },
-  { timestamp: new Date('2026-08-27T08:05:00.000Z'), metadata: { event: ids.event1, metric: 'scan_rate', zoneCode: 'Z-LOGI' }, value: 57 },
-  { timestamp: new Date('2026-08-27T08:00:00.000Z'), metadata: { event: ids.event1, metric: 'carbon_footprint', zoneCode: null }, value: 10.73 },
-  { timestamp: new Date('2026-08-27T08:10:00.000Z'), metadata: { event: ids.event1, metric: 'sync_latency_ms', zoneCode: null }, value: 340 },
-  { timestamp: new Date('2026-08-27T08:10:00.000Z'), metadata: { event: ids.event1, metric: 'active_agents', zoneCode: null }, value: 6 },
-  { timestamp: new Date('2026-08-25T11:20:00.000Z'), metadata: { event: ids.event1, metric: 'bottleneck', zoneCode: 'Z-SCENE' }, value: 1 },
+  {
+    timestamp: new Date('2026-08-27T08:00:00.000Z'),
+    metadata: { event: ids.event1, metric: 'scan_rate', zoneCode: 'Z-LOGI' },
+    value: 42,
+  },
+  {
+    timestamp: new Date('2026-08-27T08:05:00.000Z'),
+    metadata: { event: ids.event1, metric: 'scan_rate', zoneCode: 'Z-LOGI' },
+    value: 57,
+  },
+  {
+    timestamp: new Date('2026-08-27T08:00:00.000Z'),
+    metadata: { event: ids.event1, metric: 'carbon_footprint', zoneCode: null },
+    value: 10.73,
+  },
+  {
+    timestamp: new Date('2026-08-27T08:10:00.000Z'),
+    metadata: { event: ids.event1, metric: 'sync_latency_ms', zoneCode: null },
+    value: 340,
+  },
+  {
+    timestamp: new Date('2026-08-27T08:10:00.000Z'),
+    metadata: { event: ids.event1, metric: 'active_agents', zoneCode: null },
+    value: 6,
+  },
+  {
+    timestamp: new Date('2026-08-25T11:20:00.000Z'),
+    metadata: { event: ids.event1, metric: 'bottleneck', zoneCode: 'Z-SCENE' },
+    value: 1,
+  },
 ];
 
 async function insertMany(db, collectionName, docs) {
@@ -210,7 +256,9 @@ async function insertMany(db, collectionName, docs) {
   } catch (err) {
     if (err.code === 11000 || (err.writeErrors && err.writeErrors.every((e) => e.code === 11000))) {
       const inserted = err.result?.result?.nInserted ?? 0;
-      console.log(`⚠ ${collectionName} : certains documents existaient déjà (doublons ignorés), ${inserted} inséré(s)`);
+      console.log(
+        `⚠ ${collectionName} : certains documents existaient déjà (doublons ignorés), ${inserted} inséré(s)`,
+      );
     } else {
       throw err;
     }

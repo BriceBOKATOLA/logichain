@@ -40,24 +40,60 @@ async function seed() {
     startDate: new Date('2026-08-01'),
     endDate: new Date('2026-08-04'),
     status: 'active',
-    zones: [{
-      name: 'Zone Scène Principale',
-      geometry: {
-        type: 'Polygon',
-        coordinates: [[[2.35, 48.85], [2.36, 48.85], [2.36, 48.86], [2.35, 48.86], [2.35, 48.85]]],
+    zones: [
+      {
+        name: 'Zone Scène Principale',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [
+            [
+              [2.35, 48.85],
+              [2.36, 48.85],
+              [2.36, 48.86],
+              [2.35, 48.86],
+              [2.35, 48.85],
+            ],
+          ],
+        },
       },
-    }],
+    ],
   });
 
   await Item.insertMany([
-    { label: 'Groupe électrogène 40kVA', qrCode: 'QR-0001', eventId: event._id, carbonWeightKg: 800, transportMode: 'road' },
-    { label: 'Barrière Vauban x10', qrCode: 'QR-0002', eventId: event._id, carbonWeightKg: 350, transportMode: 'electric_vehicle' },
-    { label: 'Structure scène modulaire', qrCode: 'QR-0003', eventId: event._id, carbonWeightKg: 2200, transportMode: 'rail' },
+    {
+      label: 'Groupe électrogène 40kVA',
+      qrCode: 'QR-0001',
+      eventId: event._id,
+      carbonWeightKg: 800,
+      transportMode: 'road',
+    },
+    {
+      label: 'Barrière Vauban x10',
+      qrCode: 'QR-0002',
+      eventId: event._id,
+      carbonWeightKg: 350,
+      transportMode: 'electric_vehicle',
+    },
+    {
+      label: 'Structure scène modulaire',
+      qrCode: 'QR-0003',
+      eventId: event._id,
+      carbonWeightKg: 2200,
+      transportMode: 'rail',
+    },
   ]);
 
   console.log('Seed terminé:');
-  console.log({ admin: admin.email, agent: agent.email, transporter: transporter.email, eventId: event._id.toString() });
+  console.log({
+    admin: admin.email,
+    agent: agent.email,
+    transporter: transporter.email,
+    eventId: event._id.toString(),
+  });
   await db.disconnect();
 }
 
-seed().catch((err) => { console.error(err); process.exit(1); });
+seed().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

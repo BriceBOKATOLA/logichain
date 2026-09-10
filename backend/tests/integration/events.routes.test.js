@@ -25,7 +25,15 @@ const ZONE = {
   name: 'Zone Scène Principale',
   geometry: {
     type: 'Polygon',
-    coordinates: [[[2.35, 48.85], [2.36, 48.85], [2.36, 48.86], [2.35, 48.86], [2.35, 48.85]]],
+    coordinates: [
+      [
+        [2.35, 48.85],
+        [2.36, 48.85],
+        [2.36, 48.86],
+        [2.35, 48.86],
+        [2.35, 48.85],
+      ],
+    ],
   },
 };
 
@@ -100,10 +108,7 @@ describe('POST /api/v1/events', () => {
 
 describe('GET /api/v1/events', () => {
   it('renvoie une liste paginée avec ses métadonnées', async () => {
-    await Event.create([
-      VALID_EVENT,
-      { ...VALID_EVENT, name: 'Salon du Livre 2026', status: 'draft' },
-    ]);
+    await Event.create([VALID_EVENT, { ...VALID_EVENT, name: 'Salon du Livre 2026', status: 'draft' }]);
 
     const res = await request(app)
       .get('/api/v1/events')
@@ -129,7 +134,12 @@ describe('GET /api/v1/events', () => {
 describe('GET /api/v1/events/active', () => {
   it("retourne l'événement actif démarré le plus récemment", async () => {
     await Event.create([
-      { ...VALID_EVENT, name: 'Ancien Festival', startDate: '2026-01-01T00:00:00.000Z', endDate: '2026-01-05T00:00:00.000Z' },
+      {
+        ...VALID_EVENT,
+        name: 'Ancien Festival',
+        startDate: '2026-01-01T00:00:00.000Z',
+        endDate: '2026-01-05T00:00:00.000Z',
+      },
       { ...VALID_EVENT, name: 'Festival Récent', startDate: '2026-08-01T00:00:00.000Z' },
       { ...VALID_EVENT, name: 'Brouillon', status: 'draft' },
     ]);

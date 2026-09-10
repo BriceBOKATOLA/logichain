@@ -19,9 +19,13 @@ function mountSwagger(app) {
     next();
   });
 
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
-    customSiteTitle: 'LogiChain API Docs',
-  }));
+  app.use(
+    '/api-docs',
+    swaggerUi.serve,
+    swaggerUi.setup(swaggerDocument, {
+      customSiteTitle: 'LogiChain API Docs',
+    }),
+  );
   app.get('/api-docs.json', (req, res) => res.json(swaggerDocument));
 }
 
