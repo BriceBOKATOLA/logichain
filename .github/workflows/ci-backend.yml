@@ -102,7 +102,7 @@ jobs:
       - name: Mettre en cache le binaire MongoDB
         # Le binaire pèse ~80 Mo : le retélécharger à chaque exécution
         # ajouterait une minute et une dépendance réseau inutiles.
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ github.workspace }}/.cache/mongodb-binaries
           key: mongodb-binaries-${{ runner.os }}-${{ env.MONGOMS_VERSION }}
@@ -136,7 +136,7 @@ jobs:
           cache-dependency-path: backend/package-lock.json
 
       - name: Restaurer le cache du binaire MongoDB
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ github.workspace }}/.cache/mongodb-binaries
           key: mongodb-binaries-${{ runner.os }}-${{ env.MONGOMS_VERSION }}
