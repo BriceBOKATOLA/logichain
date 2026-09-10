@@ -23,13 +23,10 @@ describe('UserEntity', () => {
   });
 
   it('refuse une adresse email malformée avec un 422', () => {
-    expect.assertions(2);
-    try {
-      new UserEntity({ ...valid, email: 'pas-un-email' });
-    } catch (err) {
-      expect(err.statusCode).toBe(422);
-      expect(err.message).toMatch(/email/i);
-    }
+    const build = () => new UserEntity({ ...valid, email: 'pas-un-email' });
+
+    expect(build).toThrow(/email/i);
+    expect(build).toThrow(expect.objectContaining({ statusCode: 422 }));
   });
 
   it('refuse un rôle hors référentiel', () => {

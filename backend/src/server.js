@@ -40,7 +40,9 @@ async function bootstrap() {
     }, 10000);
     forceExit.unref();
 
-    await new Promise((resolve) => httpServer.close(resolve));
+    await new Promise((resolve) => {
+      httpServer.close(resolve);
+    });
     await db.disconnect();
     logger.info('Arrêt terminé proprement.');
     process.exit(0);

@@ -51,7 +51,6 @@ async function main() {
 
   for (const r of results) {
     logger.info(`[indexes] ${r.model}: ${r.indexes.join(', ')}`);
-    // eslint-disable-next-line no-console
     console.log(`${r.model.padEnd(12)} -> ${r.indexes.join(', ')}`);
   }
 
@@ -59,7 +58,6 @@ async function main() {
 }
 
 main().catch(async (err) => {
-  // eslint-disable-next-line no-console
   console.error('Échec de la synchronisation des index :', err.message);
   await db.disconnect().catch(() => {});
   process.exit(1);
