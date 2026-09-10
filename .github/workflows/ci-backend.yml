@@ -17,11 +17,18 @@ on:
   # que production et CI valident exactement les mêmes règles.
   workflow_call:
 
-# Une nouvelle poussée sur une PR annule l'exécution précédente : inutile de
-# payer deux fois pour valider un état devenu obsolète.
-concurrency:
-  group: ci-backend-${{ github.ref }}
-  cancel-in-progress: true
+# PAS de bloc `concurrency` ici, volontairement.
+#
+# Ce workflow est aussi appelé en `workflow_call` par le job `quality-gate` de
+# cd-deploy.yml. Constaté en pratique : un déclenchement direct sur `push`
+# (ce fichier) et l'appel réutilisable déclenché par le MÊME push (via
+# cd-deploy.yml) finissaient dans le même groupe `ci-backend-${{ github.ref }}`
+# — GitHub, avec `cancel-in-progress: true`, annulait alors l'un des deux
+# passages. Trois checks pourtant requis par les Branch Protection Rules sont
+# passés en `cancelled`, bloquant une Pull Request par ailleurs entièrement
+# valide (message : « 3 of 6 required status checks are cancelled »).
+# Le coût d'exécutions en double sur une poussée rapprochée est négligeable
+# comparé au risque de bloquer une fusion sur un faux négatif.
 
 defaults:
   run:
