@@ -1,0 +1,10 @@
+---
+app_name: logichain
+app_port: 4000
+app_domain: ""
+letsencrypt_email: ""
+nginx_client_max_body_size: 10m
+# Zone de limitation de débit Nginx : première ligne de défense, en amont du
+# rate-limit applicatif d'Express (qui, lui, comprend les rôles et les routes).
+nginx_rate_limit_rps: 20
+nginx_rate_limit_burst: 40

@@ -1,0 +1,7 @@
+---
+backup_dir: /var/backups/logichain
+backup_retention_days: 14
+backup_cron_hour: "3"
+backup_cron_minute: "30"
+app_user: deploy
+app_group: deploy

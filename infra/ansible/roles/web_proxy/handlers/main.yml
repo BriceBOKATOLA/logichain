@@ -1,0 +1,8 @@
+---
+- name: Recharger Nginx
+  # `reload` et non `restart` : la configuration est rechargée sans fermer les
+  # connexions en cours (dont les WebSockets des agents de terrain).
+  ansible.builtin.service:
+    name: nginx
+    state: reloaded
+  listen: reload nginx

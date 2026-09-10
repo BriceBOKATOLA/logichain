@@ -1,0 +1,28 @@
+# {{ ansible_managed }}
+# Réglages Nginx partagés par les vhosts LogiChain.
+
+# Ne pas divulguer la version de Nginx dans les en-têtes et les pages d'erreur.
+server_tokens off;
+
+client_max_body_size {{ nginx_client_max_body_size }};
+
+# Zone de limitation de débit par IP. Elle protège l'API du balayage massif
+# AVANT que la requête n'atteigne Node.js — le rate-limit d'Express reste en
+# place derrière, avec une connaissance métier que Nginx n'a pas.
+limit_req_zone $binary_remote_addr zone=logichain_api:10m rate={{ nginx_rate_limit_rps }}r/s;
+
+# Mise à niveau WebSocket : les agents de terrain reçoivent les alertes temps
+# réel via Socket.IO, qui échoue si ces en-têtes ne sont pas propagés.
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+# Compression : les réponses JSON de l'API sont très compressibles, ce qui
+# compte sur un réseau mobile de festival, souvent saturé.
+gzip on;
+gzip_vary on;
+gzip_proxied any;
+gzip_comp_level 5;
+gzip_min_length 512;
+gzip_types application/json application/javascript text/css text/plain application/xml;
