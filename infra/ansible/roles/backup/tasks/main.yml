@@ -1,0 +1,93 @@
+---
+# ===========================================================================
+# Rôle Backup — sauvegardes MongoDB automatisées
+#
+# Sans sauvegarde vérifiable, un rollback applicatif ne protège que le code :
+# une migration de données ratée resterait irréversible. Ce rôle met en place
+# un `mongodump` quotidien avec rotation, et le script de restauration
+# documenté dans le Runbook.
+# ===========================================================================
+
+- name: Créer le répertoire de sauvegarde
+  ansible.builtin.file:
+    path: "{{ backup_dir }}"
+    state: directory
+    owner: root
+    group: root
+    # Les dumps contiennent l'intégralité des données, y compris les hashs de
+    # mots de passe : lisibles par root uniquement.
+    mode: "0700"
+
+- name: Déposer les identifiants de sauvegarde
+  ansible.builtin.template:
+    src: backup.env.j2
+    dest: /etc/logichain/backup.env
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+- name: Déployer le script de sauvegarde
+  ansible.builtin.template:
+    src: mongodb-backup.sh.j2
+    dest: /usr/local/bin/logichain-backup
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Déployer le script de restauration
+  ansible.builtin.template:
+    src: mongodb-restore.sh.j2
+    dest: /usr/local/bin/logichain-restore
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Planifier la sauvegarde quotidienne
+  ansible.builtin.cron:
+    name: "Sauvegarde MongoDB LogiChain"
+    user: root
+    hour: "{{ backup_cron_hour }}"
+    minute: "{{ backup_cron_minute }}"
+    job: "/usr/local/bin/logichain-backup >> /var/log/logichain-backup.log 2>&1"
+    state: present
+
+- name: Mettre en place la rotation du journal de sauvegarde
+  ansible.builtin.copy:
+    content: |
+      /var/log/logichain-backup.log {
+          weekly
+          rotate 8
+          compress
+          missingok
+          notifempty
+          create 0640 root root
+      }
+    dest: /etc/logrotate.d/logichain-backup
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Exécuter une sauvegarde de vérification
+  # Une sauvegarde jamais testée n'est pas une sauvegarde : on en déclenche
+  # une immédiatement pour valider les identifiants et les droits d'écriture,
+  # plutôt que de découvrir le problème la nuit où l'on en aura besoin.
+  ansible.builtin.command:
+    cmd: /usr/local/bin/logichain-backup
+  register: backup_verification
+  changed_when: true
+
+- name: Confirmer la présence d'une archive
+  ansible.builtin.find:
+    paths: "{{ backup_dir }}"
+    patterns: "logichain-*.archive.gz"
+  register: backup_archives
+
+- name: Vérifier qu'au moins une sauvegarde existe
+  ansible.builtin.assert:
+    that:
+      - backup_archives.files | length > 0
+    fail_msg: "Aucune archive produite dans {{ backup_dir }} : la sauvegarde ne fonctionne pas."
+    success_msg: >-
+      Sauvegarde opérationnelle ({{ backup_archives.files | length }} archive(s),
+      dernière de {{ (backup_archives.files | sort(attribute='mtime') | last).size | human_readable }}).

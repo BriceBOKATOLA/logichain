@@ -1,0 +1,33 @@
+---
+# --- Arborescence de déploiement --------------------------------------------
+# /opt/logichain
+#   ├── releases/<horodatage>/   une release complète et immuable
+#   ├── shared/.env              secrets, survivant aux déploiements
+#   ├── shared/logs/             journaux PM2, survivant aux déploiements
+#   └── current -> releases/…    lien symbolique servi par PM2 et Nginx
+
+- name: Créer l'arborescence applicative
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+  loop:
+    - "{{ app_root }}"
+    - "{{ app_releases_dir }}"
+    - "{{ app_shared_dir }}"
+    - "{{ app_shared_dir }}/logs"
+    - "{{ app_shared_dir }}/assets"
+
+- name: Déposer le fichier d'environnement de production
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ app_shared_dir }}/.env"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    # Lisible uniquement par le compte de service : ce fichier contient les
+    # secrets JWT et le mot de passe MongoDB applicatif.
+    mode: "0600"
+  no_log: true # n'affiche jamais le contenu du template dans la sortie Ansible
+  notify: reload api
