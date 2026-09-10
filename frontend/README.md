@@ -44,12 +44,12 @@ Un **seul** fichier est à adapter pour brancher l'application sur un backend :
 [`src/config/env.js`](src/config/env.js). `ApiClient` (HTTP) et `SocketService`
 (WebSocket) l'importent tous les deux — aucune URL n'est dupliquée ailleurs.
 
-| Cible d'exécution   | Valeur de `HOST`              |
-| ------------------- | ----------------------------- |
-| Émulateur Android   | `http://10.0.2.2:4000`        |
-| Simulateur iOS      | `http://localhost:4000`       |
-| Téléphone physique  | `http://<IP_LAN_DU_PC>:4000`  |
-| Production          | `https://logichain.online`    |
+| Cible d'exécution  | Valeur de `HOST`             |
+| ------------------ | ---------------------------- |
+| Émulateur Android  | `http://10.0.2.2:4000`       |
+| Simulateur iOS     | `http://localhost:4000`      |
+| Téléphone physique | `http://<IP_LAN_DU_PC>:4000` |
+| Production         | `https://logichain.online`   |
 
 > Sur un téléphone physique, `localhost` désigne le téléphone lui-même : il
 > faut impérativement l'IP LAN du poste de développement, et autoriser le port
