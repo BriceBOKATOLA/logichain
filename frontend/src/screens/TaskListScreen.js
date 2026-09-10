@@ -20,7 +20,9 @@ export default function TaskListScreen({ navigation }) {
         )}
         onRefresh={refresh}
         refreshing={loading}
-        ListEmptyComponent={<Text style={styles.empty}>Aucun élément en cache. Connectez-vous une première fois.</Text>}
+        ListEmptyComponent={
+          <Text style={styles.empty}>Aucun élément en cache. Connectez-vous une première fois.</Text>
+        }
         contentContainerStyle={{ paddingBottom: spacing.xl }}
       />
     </View>

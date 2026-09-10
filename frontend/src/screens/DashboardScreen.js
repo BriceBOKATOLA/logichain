@@ -19,7 +19,9 @@ export default function DashboardScreen({ navigation }) {
     <ScrollView
       style={styles.container}
       contentContainerStyle={{ padding: spacing.lg }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} />}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} />
+      }
     >
       <View style={styles.headerRow}>
         <Text style={styles.title}>Tableau de bord</Text>
@@ -48,17 +50,34 @@ export default function DashboardScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   mapButton: {
-    width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.surfaceElevated,
-    alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border,
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceElevated,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   title: { ...typography.h1, fontSize: 24 },
   kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
   kpiCard: {
-    backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.lg,
-    width: '47%', alignItems: 'center', borderWidth: 1, borderColor: colors.border, ...shadow.card,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    width: '47%',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadow.card,
   },
   kpiValue: { ...typography.h1, color: colors.primary },
   kpiLabel: { ...typography.caption, marginTop: spacing.xs, textTransform: 'uppercase' },

@@ -24,7 +24,11 @@ class SyncService {
     const fromState = current?.state;
     const versionToUse = current?.version ?? expectedVersion;
 
-    await localItemRepository.applyOptimisticTransition(itemId, toState, location ? { lat: location.coordinates[1], lng: location.coordinates[0] } : null);
+    await localItemRepository.applyOptimisticTransition(
+      itemId,
+      toState,
+      location ? { lat: location.coordinates[1], lng: location.coordinates[0] } : null,
+    );
 
     await syncQueueRepository.enqueue({
       clientActionId,

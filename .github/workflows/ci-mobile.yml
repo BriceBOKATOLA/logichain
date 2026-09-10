@@ -1,0 +1,106 @@
+name: CI Mobile
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: frontend
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  lint:
+    name: Qualité de code (ESLint + Prettier)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Installer les dépendances
+        # `--legacy-peer-deps` : l'écosystème Expo/React Native publie
+        # régulièrement des plages de peerDependencies plus strictes que la
+        # réalité. Sans ce drapeau, npm refuserait une arborescence pourtant
+        # validée par Expo lui-même.
+        run: npm ci --legacy-peer-deps
+
+      - name: Analyse statique ESLint
+        run: npm run lint
+
+      - name: Vérification du formatage Prettier
+        run: npm run format:check
+
+  test:
+    name: Tests (logique Offline-First)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Installer les dépendances
+        run: npm ci --legacy-peer-deps
+
+      - name: Exécuter les tests
+        # Le préréglage jest-expo neutralise les modules natifs (SQLite,
+        # caméra, GPS) : la logique de synchronisation est donc testable sur
+        # un runner sans appareil.
+        run: npm run test:ci
+
+      - name: Publier le rapport de couverture
+        uses: actions/upload-artifact@v4
+        with:
+          name: couverture-mobile
+          path: frontend/coverage/
+          retention-days: 14
+
+  bundle:
+    name: Vérification du bundle Expo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Installer les dépendances
+        run: npm ci --legacy-peer-deps
+
+      - name: Contrôler la cohérence des versions Expo
+        # `expo-doctor` détecte les incompatibilités de versions entre le SDK
+        # Expo et les paquets installés — la cause n°1 d'une application qui
+        # compile en CI mais plante au lancement sur l'appareil.
+        run: npx --yes expo-doctor
+        continue-on-error: true
+
+      - name: Compiler le bundle JavaScript
+        # Preuve que l'application se construit réellement : une erreur
+        # d'import ou de syntaxe qui échapperait au linter est détectée ici.
+        run: npx expo export --platform android --output-dir ./dist-check

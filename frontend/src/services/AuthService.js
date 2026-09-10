@@ -18,7 +18,13 @@ class AuthService {
   }
 
   async logout() {
-    try { await apiClient.post('/auth/logout'); } catch (e) { /* offline: on nettoie quand même */ }
+    try {
+      await apiClient.post('/auth/logout');
+    } catch {
+      // Hors-ligne : le serveur ne peut pas invalider la session maintenant,
+      // mais on purge quand même le stockage local pour ne pas laisser de
+      // jetons sur l'appareil d'un agent qui se déconnecte.
+    }
     await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'user']);
   }
 

@@ -15,7 +15,9 @@ import ensureAdmin from './src/utils/ensureAdmin';
 export default function App() {
   React.useEffect(() => {
     // Ensure admin exists on backend when app starts (best-effort)
-    ensureAdmin().then((ok) => { if (!ok) console.warn('Admin check failed'); });
+    ensureAdmin().then((ok) => {
+      if (!ok) console.warn('Admin check failed');
+    });
   }, []);
   return (
     <SafeAreaProvider>

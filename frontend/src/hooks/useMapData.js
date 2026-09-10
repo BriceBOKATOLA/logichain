@@ -32,7 +32,9 @@ export function useMapData(eventId) {
     }
   }, [eventId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return { zones, items, loading, error, refresh: load };
 }
