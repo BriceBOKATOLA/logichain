@@ -43,6 +43,58 @@
   community.general.timezone:
     name: "{{ timezone }}"
 
+# --- Swap de secours ---------------------------------------------------------
+# Ce VPS n'a que {{ ansible_memtotal_mb | default('~4000') }} Mo de RAM et
+# aucun swap par défaut. Le déploiement construit désormais le bundle web
+# (Metro/React Native, plusieurs centaines de modules) directement sur le
+# serveur : un pic mémoire pendant ce build pourrait sinon déclencher l'OOM
+# killer, qui ne cible pas forcément le bon processus (il pourrait tout aussi
+# bien arrêter MongoDB). Un swapfile est un filet de sécurité standard sur un
+# VPS à mémoire limitée, pas une solution de performance.
+
+- name: Vérifier l'absence de swap actif
+  ansible.builtin.set_fact:
+    swap_missing: "{{ (ansible_swaptotal_mb | default(0)) == 0 }}"
+
+- name: Créer le fichier swap
+  ansible.builtin.command:
+    cmd: fallocate -l {{ swap_size_gb }}G /swapfile
+    creates: /swapfile
+  when: swap_missing
+
+- name: Restreindre les permissions du fichier swap
+  # Un fichier swap lisible par d'autres comptes exposerait son contenu (des
+  # pages mémoire arbitraires, potentiellement des secrets en clair) aux
+  # autres utilisateurs du système.
+  ansible.builtin.file:
+    path: /swapfile
+    owner: root
+    group: root
+    mode: "0600"
+  when: swap_missing
+
+- name: Formater le fichier swap
+  ansible.builtin.command:
+    cmd: mkswap /swapfile
+  when: swap_missing
+  changed_when: true
+
+- name: Activer le swap immédiatement
+  ansible.builtin.command:
+    cmd: swapon /swapfile
+  when: swap_missing
+  changed_when: true
+
+- name: Rendre le swap persistant au redémarrage
+  # Module natif dédié à fstab, y compris pour une entrée swap : pas de
+  # `lineinfile` bricolé sur /etc/fstab.
+  ansible.posix.mount:
+    src: /swapfile
+    path: none
+    fstype: swap
+    opts: sw
+    state: present
+
 # --- Utilisateur de service non-root ---------------------------------------
 
 - name: Créer le groupe applicatif

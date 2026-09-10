@@ -1,6 +1,10 @@
 # {{ ansible_managed }}
-# Reverse proxy de l'API LogiChain.
+# Reverse proxy LogiChain : sert l'application web à la racine du domaine et
+# proxifie l'API Node.js sur ses chemins réservés (/api/, /api-docs, /health,
+# /socket.io/). Les deux applications (mobile ET web, issues du même code
+# source frontend/) partagent ainsi le même nom de domaine sans conflit.
 {% set server_name = ([app_domain] + app_domain_aliases) | join(' ') if app_domain | length > 0 else '_' %}
+{% set web_root = app_current_dir + '/' + app_frontend_subdir + '/web-build' %}
 
 {% if tls_enabled %}
 # --- Redirection HTTP -> HTTPS ---------------------------------------------
@@ -90,8 +94,20 @@ server {
         proxy_send_timeout 3600s;
     }
 
-    # --- API REST ------------------------------------------------------------
-    location / {
+    # --- Documentation Swagger -------------------------------------------
+    # Préfixe (pas de correspondance exacte) : swagger-ui-express sert ses
+    # propres ressources statiques (CSS/JS de l'interface) sous ce même chemin.
+    location /api-docs {
+        proxy_pass http://127.0.0.1:{{ app_port }};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # --- API REST --------------------------------------------------------
+    location /api/ {
         limit_req zone=logichain_api burst={{ nginx_rate_limit_burst }} nodelay;
 
         proxy_pass http://127.0.0.1:{{ app_port }};
@@ -106,5 +122,38 @@ server {
         proxy_connect_timeout 10s;
         proxy_read_timeout 60s;
         proxy_send_timeout 60s;
+    }
+
+    # --- Application web (mobile ET web partagent frontend/) --------------
+    # Fichiers statiques export Metro (`npm run build:web`). `try_files` avec
+    # repli sur index.html est ce qui permet à une URL comme /tasks ou /carte
+    # d'être servie directement au premier chargement (F5, lien partagé) :
+    # sans lui, Nginx renverrait 404 sur toute route autre que la racine,
+    # puisque ces chemins n'existent qu'en tant qu'état de navigation côté
+    # client (React Navigation), jamais comme fichiers réels sur le disque.
+    root {{ web_root }};
+    index index.html;
+
+    location / {
+        # Isolation d'origine croisée requise par le moteur SQLite web
+        # (wa-sqlite, via OPFS/SharedArrayBuffer) utilisé par expo-sqlite sur
+        # le web. Sans ces deux en-têtes, la base locale ne persiste pas d'un
+        # rechargement de page à l'autre. Posés uniquement ici (et non sur les
+        # routes API) pour ne pas contraindre inutilement Swagger UI.
+        add_header Cross-Origin-Opener-Policy "same-origin" always;
+        add_header Cross-Origin-Embedder-Policy "require-corp" always;
+
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Le nom de fichier des bundles JS/CSS inclut un hash de contenu (voir
+    # `_expo/static/js/web/AppEntry-<hash>.js`) : un cache long est donc sans
+    # risque, un déploiement change le hash et donc l'URL, jamais le contenu
+    # d'une URL déjà en cache.
+    location /_expo/static/ {
+        add_header Cross-Origin-Opener-Policy "same-origin" always;
+        add_header Cross-Origin-Embedder-Policy "require-corp" always;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
     }
 }
