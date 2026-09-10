@@ -19,9 +19,7 @@ export default function PrimaryButton({ label, onPress, loading, variant = 'prim
         (disabled || loading) && styles.disabled,
       ]}
     >
-      {loading
-        ? <ActivityIndicator color={colors.background} />
-        : <Text style={styles.label}>{label}</Text>}
+      {loading ? <ActivityIndicator color={colors.background} /> : <Text style={styles.label}>{label}</Text>}
     </Pressable>
   );
 }

@@ -3,12 +3,12 @@
  * Un seul point de vérité pour garantir la cohérence visuelle de toute l'app.
  */
 export const colors = {
-  background: '#0F1712',       // vert nuit, lisible en extérieur / plein soleil
+  background: '#0F1712', // vert nuit, lisible en extérieur / plein soleil
   surface: '#182620',
   surfaceElevated: '#1F3229',
-  primary: '#3DDC84',          // vert signal (éco-responsable)
+  primary: '#3DDC84', // vert signal (éco-responsable)
   primaryDark: '#22A25B',
-  accent: '#4FB8FF',           // bleu technique (carte, GPS)
+  accent: '#4FB8FF', // bleu technique (carte, GPS)
   warning: '#FFC24B',
   danger: '#FF5D5D',
   textPrimary: '#F3FBF6',
@@ -18,11 +18,19 @@ export const colors = {
 };
 
 export const spacing = {
-  xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48,
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+  xxl: 48,
 };
 
 export const radius = {
-  sm: 8, md: 14, lg: 22, pill: 999,
+  sm: 8,
+  md: 14,
+  lg: 22,
+  pill: 999,
 };
 
 export const typography = {

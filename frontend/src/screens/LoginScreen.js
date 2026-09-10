@@ -20,8 +20,8 @@ export default function LoginScreen() {
     setError(null);
     try {
       await login(email, password);
-    } catch (e) {
-      setError("Connexion impossible. Vérifiez vos identifiants ou votre réseau.");
+    } catch {
+      setError('Connexion impossible. Vérifiez vos identifiants ou votre réseau.');
     } finally {
       setLoading(false);
     }

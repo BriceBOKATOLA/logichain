@@ -1,0 +1,127 @@
+name: Sécurité
+
+# Traduit en contrôle automatique l'exigence §5 : « Aucune clé d'API ou secret
+# ne doit être commité en clair dans le dépôt Git. » Un audit humain ne tient
+# pas dans la durée ; ce pipeline, si.
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Tous les lundis à 6 h : de nouvelles vulnérabilités sont publiées en
+    # permanence, y compris sur du code que personne n'a modifié.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  secrets-scan:
+    name: Recherche de secrets commités
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer l'historique complet
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Analyser l'historique avec Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  forbidden-files:
+    name: Fichiers interdits
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Vérifier qu'aucun fichier sensible n'est versionné
+        # Contrôle explicite et lisible, complémentaire de Gitleaks : il
+        # échoue sur la PRÉSENCE du fichier, même si son contenu ne ressemble
+        # à aucun motif de secret connu.
+        run: |
+          set -euo pipefail
+          echo "Fichiers suivis correspondant à un motif sensible :"
+          FOUND=$(git ls-files | grep -E '(^|/)\.env$|(^|/)\.env\.(local|production|development)$|\.pem$|\.p12$|id_rsa$|\.keystore$|(^|/)vault\.yml$' || true)
+          if [ -n "$FOUND" ]; then
+            echo "$FOUND"
+            echo "::error::Des fichiers sensibles sont versionnés. Retirez-les avec 'git rm --cached' et complétez .gitignore."
+            exit 1
+          fi
+          echo "  (aucun) — conforme."
+
+      - name: Vérifier que le Vault Ansible est bien chiffré
+        run: |
+          set -euo pipefail
+          for f in $(git ls-files 'infra/ansible/**/vault.yml' || true); do
+            if ! head -1 "$f" | grep -q 'ANSIBLE_VAULT'; then
+              echo "::error::$f est versionné en CLAIR. Chiffrez-le : ansible-vault encrypt $f"
+              exit 1
+            fi
+          done
+          echo "Aucun Vault en clair."
+
+  dependency-audit:
+    name: Audit des dépendances
+    runs-on: ubuntu-latest
+    strategy:
+      # `fail-fast: false` : on veut connaître l'état des DEUX sous-projets en
+      # une seule exécution, pas s'arrêter au premier problème.
+      fail-fast: false
+      matrix:
+        include:
+          - project: backend
+            install: npm ci
+          - project: frontend
+            install: npm ci --legacy-peer-deps
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Installer les dépendances de ${{ matrix.project }}
+        working-directory: ${{ matrix.project }}
+        run: ${{ matrix.install }}
+
+      - name: Auditer les vulnérabilités critiques et élevées
+        working-directory: ${{ matrix.project }}
+        # Seuil volontairement placé à `high` : bloquer sur la moindre
+        # vulnérabilité « low » d'une dépendance de développement rendrait le
+        # pipeline rouge en permanence et le ferait ignorer par l'équipe.
+        run: npm audit --audit-level=high
+
+  ansible-lint:
+    name: Qualité des playbooks Ansible
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer ansible-lint
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install "ansible-core>=2.16" ansible-lint
+
+      - name: Installer les collections
+        working-directory: infra/ansible
+        run: ansible-galaxy collection install -r requirements.yml
+
+      - name: Analyser les rôles et playbooks
+        working-directory: infra/ansible
+        # ansible-lint détecte notamment les `command`/`shell` sans garde
+        # `creates`/`when` — précisément ce que le §5 du cahier des charges
+        # proscrit au profit des modules natifs.
+        run: ansible-lint playbooks/ roles/
+
+      - name: Vérifier la syntaxe des playbooks
+        working-directory: infra/ansible
+        run: |
+          for pb in playbooks/*.yml; do
+            echo "--- $pb"
+            ansible-playbook --syntax-check "$pb"
+          done

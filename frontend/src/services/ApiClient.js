@@ -45,7 +45,10 @@ class ApiClient {
             await AsyncStorage.setItem('refreshToken', data.data.refreshToken);
             original.headers.Authorization = `Bearer ${data.data.accessToken}`;
             return this.http(original);
-          } catch (refreshError) {
+          } catch {
+            // Le refresh token est lui aussi invalide : la session est
+            // définitivement expirée. On purge le stockage et on prévient
+            // AuthContext, qui renvoie l'agent vers l'écran de connexion.
             await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'user']);
             this._onSessionExpired?.();
           }
@@ -55,9 +58,15 @@ class ApiClient {
     );
   }
 
-  get(url, config) { return this.http.get(url, config); }
-  post(url, body, config) { return this.http.post(url, body, config); }
-  patch(url, body, config) { return this.http.patch(url, body, config); }
+  get(url, config) {
+    return this.http.get(url, config);
+  }
+  post(url, body, config) {
+    return this.http.post(url, body, config);
+  }
+  patch(url, body, config) {
+    return this.http.patch(url, body, config);
+  }
 }
 
 export default new ApiClient();
