@@ -1,5 +1,5 @@
-import React from 'react';
-import { MapContainer, TileLayer, Polygon, Marker, Popup } from 'react-leaflet';
+import React, { useEffect } from 'react';
+import { MapContainer, TileLayer, Polygon, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { colors } from '../theme/theme';
@@ -29,6 +29,35 @@ const itemIcon = L.divIcon({
   iconAnchor: [8, 8],
 });
 
+/**
+ * Leaflet ne mesure la taille de son conteneur QU'UNE SEULE FOIS, au moment de
+ * son initialisation. Ici, la carte est montée à l'intérieur d'un écran de
+ * React Navigation dont la mise en page (View en `flex: 1`, chaîne de hauteurs
+ * en pourcentage jusqu'à `#root`) peut ne pas être encore stabilisée à cet
+ * instant précis : le conteneur mesure alors 0×0, Leaflet initialise ses
+ * tuiles sur cette taille, et la carte reste visuellement vide même si le DOM
+ * est correct et que la taille finale s'est bien résolue juste après.
+ *
+ * On force une remesure (`invalidateSize`) juste après le premier rendu, et à
+ * chaque redimensionnement de la fenêtre — c'est le correctif standard et
+ * documenté de l'écosystème react-leaflet pour ce piège classique.
+ */
+function InvalidateSizeOnMount() {
+  const map = useMap();
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => map.invalidateSize());
+    const onResize = () => map.invalidateSize();
+    window.addEventListener('resize', onResize);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [map]);
+
+  return null;
+}
+
 export default function ZoneMap({ zones, items, initialRegion }) {
   const center = [initialRegion.latitude, initialRegion.longitude];
   // Conversion approximative delta -> niveau de zoom Leaflet, cohérente avec
@@ -37,6 +66,7 @@ export default function ZoneMap({ zones, items, initialRegion }) {
 
   return (
     <MapContainer center={center} zoom={zoom} style={{ width: '100%', height: '100%' }}>
+      <InvalidateSizeOnMount />
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
