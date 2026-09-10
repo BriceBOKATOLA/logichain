@@ -34,6 +34,17 @@ export default function ScanScreen({ navigation, route }) {
   const { handleScan, lastResult, error } = useScanner(eventId);
   const [busy, setBusy] = useState(false);
   const [pendingCode, setPendingCode] = useState(route.params?.presetQr ?? null);
+  // Sur le web, une permission déjà refusée par le passé fait échouer
+  // `getUserMedia` SANS ré-afficher de fenêtre d'autorisation : rien ne se
+  // passe visuellement après le clic, ce qui se lit comme « le bouton ne
+  // marche pas ». On distingue donc explicitement ce cas pour donner une
+  // instruction actionnable, plutôt que de laisser l'écran inchangé.
+  const [permissionRefusedAfterPrompt, setPermissionRefusedAfterPrompt] = useState(false);
+
+  const handleRequestPermission = useCallback(async () => {
+    const result = await requestPermission();
+    setPermissionRefusedAfterPrompt(!result.granted);
+  }, [requestPermission]);
 
   useEffect(() => {
     if (route.params?.presetQr) setPendingCode(route.params.presetQr);
@@ -78,8 +89,15 @@ export default function ScanScreen({ navigation, route }) {
               : 'Initialisation de la caméra…'}
           </Text>
           {permission && !permission.granted && (
-            <View style={{ marginTop: spacing.md }}>
-              <PrimaryButton label="Autoriser la caméra" onPress={requestPermission} />
+            <View style={{ marginTop: spacing.md, alignItems: 'center' }}>
+              <PrimaryButton label="Autoriser la caméra" onPress={handleRequestPermission} />
+              {permissionRefusedAfterPrompt && (
+                <Text style={[styles.info, styles.permissionHint]}>
+                  Toujours refusé. Si aucune fenêtre d&apos;autorisation n&apos;est apparue, la caméra a
+                  probablement déjà été bloquée pour ce site : ouvrez ses réglages (icône de cadenas dans la
+                  barre d&apos;adresse) pour l&apos;autoriser manuellement, puis rechargez la page.
+                </Text>
+              )}
             </View>
           )}
         </View>
@@ -152,6 +170,7 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
   },
   info: { ...typography.body, textAlign: 'center' },
+  permissionHint: { marginTop: spacing.sm, color: colors.danger, maxWidth: 320 },
   overlay: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   frame: { width: 220, height: 220, borderWidth: 3, borderColor: colors.primary, borderRadius: radius.md },
   hint: {
