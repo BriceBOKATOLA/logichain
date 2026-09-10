@@ -16,11 +16,20 @@ class EventEntity extends BaseEntity {
   }
 
   validate() {
-    this.assert(!!this.name && this.name.trim().length >= 3, "Le nom de l'événement doit contenir au moins 3 caractères.");
-    this.assert(new Date(this.startDate) < new Date(this.endDate), 'La date de début doit précéder la date de fin.');
-    this.assert(['draft', 'active', 'closed'].includes(this.status), 'Statut d\'événement invalide.');
+    this.assert(
+      !!this.name && this.name.trim().length >= 3,
+      "Le nom de l'événement doit contenir au moins 3 caractères.",
+    );
+    this.assert(
+      new Date(this.startDate) < new Date(this.endDate),
+      'La date de début doit précéder la date de fin.',
+    );
+    this.assert(['draft', 'active', 'closed'].includes(this.status), "Statut d'événement invalide.");
     this.zones.forEach((zone) => {
-      this.assert(zone.geometry && zone.geometry.type === 'Polygon', `La zone "${zone.name}" doit avoir une géométrie GeoJSON de type Polygon.`);
+      this.assert(
+        zone.geometry && zone.geometry.type === 'Polygon',
+        `La zone "${zone.name}" doit avoir une géométrie GeoJSON de type Polygon.`,
+      );
     });
   }
 

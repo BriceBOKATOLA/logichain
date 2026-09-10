@@ -12,7 +12,8 @@ class MonitoringRepository extends BaseRepository {
 
   async getRecentSeries(eventId, metricType, sinceMinutes = 30) {
     const since = new Date(Date.now() - sinceMinutes * 60 * 1000);
-    return this.model.find({ eventId, metricType, timestamp: { $gte: since } })
+    return this.model
+      .find({ eventId, metricType, timestamp: { $gte: since } })
       .sort({ timestamp: 1 })
       .exec();
   }

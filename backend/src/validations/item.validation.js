@@ -18,21 +18,30 @@ module.exports = {
   }),
   scan: Joi.object({
     expectedVersion: Joi.number().integer().min(0).required(),
-    toState: Joi.string().valid('in_stock', 'in_transit', 'delivered', 'in_maintenance', 'anomaly').required(),
+    toState: Joi.string()
+      .valid('in_stock', 'in_transit', 'delivered', 'in_maintenance', 'anomaly')
+      .required(),
     location: geoPoint.optional(),
     note: Joi.string().allow('').optional(),
     occurredAt: Joi.date().iso().optional(),
   }),
   syncBatch: Joi.object({
-    actions: Joi.array().items(Joi.object({
-      clientActionId: Joi.string().required(),
-      itemId: Joi.string().hex().length(24).required(),
-      expectedVersion: Joi.number().integer().min(0).required(),
-      toState: Joi.string().valid('in_stock', 'in_transit', 'delivered', 'in_maintenance', 'anomaly').required(),
-      location: geoPoint.optional(),
-      note: Joi.string().allow('').optional(),
-      occurredAt: Joi.date().iso().required(),
-    })).min(1).required(),
+    actions: Joi.array()
+      .items(
+        Joi.object({
+          clientActionId: Joi.string().required(),
+          itemId: Joi.string().hex().length(24).required(),
+          expectedVersion: Joi.number().integer().min(0).required(),
+          toState: Joi.string()
+            .valid('in_stock', 'in_transit', 'delivered', 'in_maintenance', 'anomaly')
+            .required(),
+          location: geoPoint.optional(),
+          note: Joi.string().allow('').optional(),
+          occurredAt: Joi.date().iso().required(),
+        }),
+      )
+      .min(1)
+      .required(),
   }),
   update: Joi.object({
     expectedVersion: Joi.number().integer().min(0).required(),

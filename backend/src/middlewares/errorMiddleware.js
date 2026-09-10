@@ -7,7 +7,9 @@ const logger = require('../utils/logger');
  * Convertit aussi les erreurs Mongoose usuelles (ValidationError, CastError, code 11000)
  * en codes HTTP sémantiques (400/404/409/422) conformément au niveau 2 de Richardson.
  */
-function errorMiddleware(err, req, res, next) { // eslint-disable-line no-unused-vars
+// La signature à 4 arguments est ce qui identifie un gestionnaire d'erreurs
+// auprès d'Express : `next` doit être déclaré même s'il n'est pas utilisé.
+function errorMiddleware(err, req, res, next) {
   let apiError = err;
 
   if (!(err instanceof ApiError)) {
