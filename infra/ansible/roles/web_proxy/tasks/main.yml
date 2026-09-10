@@ -108,7 +108,7 @@
         cmd: >-
           certbot certonly --webroot
           --webroot-path /var/www/letsencrypt
-          --domain {{ app_domain }}
+          {% for name in [app_domain] + app_domain_aliases %}--domain {{ name }} {% endfor %}
           --email {{ letsencrypt_email }}
           --agree-tos --non-interactive --no-eff-email
         creates: "/etc/letsencrypt/live/{{ app_domain }}/fullchain.pem"

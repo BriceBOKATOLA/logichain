@@ -2,6 +2,7 @@
 app_name: logichain
 app_port: 4000
 app_domain: ""
+app_domain_aliases: []
 letsencrypt_email: ""
 nginx_client_max_body_size: 10m
 # Zone de limitation de débit Nginx : première ligne de défense, en amont du
