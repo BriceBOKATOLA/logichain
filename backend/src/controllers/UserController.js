@@ -11,8 +11,14 @@ class UserController {
   list = async (req, res, next) => {
     try {
       const result = await userService.list(req.query);
-      return new ApiResponse(200, result.items, 'OK', { total: result.total, page: result.page, pages: result.pages }).send(res);
-    } catch (err) { next(err); }
+      return new ApiResponse(200, result.items, 'OK', {
+        total: result.total,
+        page: result.page,
+        pages: result.pages,
+      }).send(res);
+    } catch (err) {
+      next(err);
+    }
   };
 
   /** GET /users/:id — Détail d'un compte. */
@@ -20,7 +26,9 @@ class UserController {
     try {
       const user = await userService.getById(req.params.id);
       return new ApiResponse(200, user).send(res);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   };
 
   /** PATCH /users/:id — Modifie rôle, secteur assigné, nom ou mot de passe. */
@@ -28,7 +36,9 @@ class UserController {
     try {
       const user = await userService.update(req.params.id, req.body);
       return new ApiResponse(200, user, 'Utilisateur mis à jour.').send(res);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   };
 
   /** DELETE /users/:id — Désactive le compte (pas de suppression physique, préserve l'audit). */
@@ -36,7 +46,9 @@ class UserController {
     try {
       await userService.deactivate(req.params.id);
       return new ApiResponse(200, null, 'Utilisateur désactivé.').send(res);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   };
 }
 

@@ -9,7 +9,12 @@ class ValidationMiddleware {
     return (req, res, next) => {
       const { error, value } = schema.validate(req[property], { abortEarly: false, stripUnknown: true });
       if (error) {
-        return next(ApiError.unprocessable('Données invalides.', error.details.map((d) => d.message)));
+        return next(
+          ApiError.unprocessable(
+            'Données invalides.',
+            error.details.map((d) => d.message),
+          ),
+        );
       }
       req[property] = value;
       next();

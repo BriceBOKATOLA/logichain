@@ -13,7 +13,9 @@ class RouteController {
     try {
       const route = await routeService.createRoute(req.body);
       return new ApiResponse(201, route, 'Feuille de route créée.').send(res);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   };
 
   /** GET /routes/transporter/:transporterId?eventId=X — Feuilles de route d'un transporteur donné. */
@@ -22,7 +24,9 @@ class RouteController {
       if (!req.query.eventId) throw ApiError.badRequest('Le paramètre de requête "eventId" est obligatoire.');
       const routes = await routeService.getByTransporter(req.params.transporterId, req.query.eventId);
       return new ApiResponse(200, routes).send(res);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   };
 
   /** GET /routes?eventId=X — Supervision admin : toutes les feuilles de route d'un événement. */
@@ -31,7 +35,9 @@ class RouteController {
       if (!req.query.eventId) throw ApiError.badRequest('Le paramètre de requête "eventId" est obligatoire.');
       const routes = await routeService.getByEvent(req.query.eventId);
       return new ApiResponse(200, routes).send(res);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   };
 
   /** GET /routes/:id — Détail d'une feuille de route. */
@@ -39,7 +45,9 @@ class RouteController {
     try {
       const route = await routeService.getById(req.params.id);
       return new ApiResponse(200, route).send(res);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   };
 
   /** PATCH /routes/:id — Modification avant exécution (refusée si des arrêts sont déjà validés). */
@@ -47,7 +55,9 @@ class RouteController {
     try {
       const route = await routeService.updateRoute(req.params.id, req.body);
       return new ApiResponse(200, route, 'Feuille de route mise à jour.').send(res);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   };
 
   /** DELETE /routes/:id — Suppression avant exécution (même garde que update). */
@@ -55,7 +65,9 @@ class RouteController {
     try {
       await routeService.deleteRoute(req.params.id);
       return new ApiResponse(200, null, 'Feuille de route supprimée.').send(res);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   };
 
   /** PATCH /routes/:id/stops/:stopId/validate — Validation d'un arrêt (transaction ACID). */
@@ -63,7 +75,9 @@ class RouteController {
     try {
       const route = await routeService.validateStop(req.params.id, req.params.stopId, req.user.sub);
       return new ApiResponse(200, route, 'Arrêt validé.').send(res);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   };
 }
 

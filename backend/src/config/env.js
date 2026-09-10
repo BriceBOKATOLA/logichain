@@ -23,7 +23,9 @@ const schema = Joi.object({
   NODE_ENV: Joi.string().valid('development', 'test', 'production').default('development'),
   PORT: Joi.number().port().default(4000),
 
-  MONGO_URI: Joi.string().uri({ scheme: ['mongodb', 'mongodb+srv'] }).required(),
+  MONGO_URI: Joi.string()
+    .uri({ scheme: ['mongodb', 'mongodb+srv'] })
+    .required(),
 
   JWT_ACCESS_SECRET: Joi.string().min(16).required(),
   JWT_REFRESH_SECRET: Joi.string().min(16).required(),
@@ -37,7 +39,10 @@ const schema = Joi.object({
   // que express-rate-limit voie la vraie IP cliente et non celle du reverse proxy.
   TRUST_PROXY: Joi.number().integer().min(0).max(10).default(0),
 
-  RATE_LIMIT_WINDOW_MS: Joi.number().integer().min(1000).default(60 * 1000),
+  RATE_LIMIT_WINDOW_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .default(60 * 1000),
   RATE_LIMIT_MAX: Joi.number().integer().min(1).default(300),
 
   LOG_LEVEL: Joi.string().valid('error', 'warn', 'info', 'debug').optional(),
