@@ -23,13 +23,10 @@ describe('UserEntity', () => {
   });
 
   it('refuse une adresse email malformée avec un 422', () => {
-    expect.assertions(2);
-    try {
-      new UserEntity({ ...valid, email: 'pas-un-email' });
-    } catch (err) {
-      expect(err.statusCode).toBe(422);
-      expect(err.message).toMatch(/email/i);
-    }
+    const build = () => new UserEntity({ ...valid, email: 'pas-un-email' });
+
+    expect(build).toThrow(/email/i);
+    expect(build).toThrow(expect.objectContaining({ statusCode: 422 }));
   });
 
   it('refuse un rôle hors référentiel', () => {
@@ -76,7 +73,14 @@ describe('EventEntity', () => {
         name: 'Scène Principale',
         geometry: {
           type: 'Polygon',
-          coordinates: [[[2.35, 48.85], [2.36, 48.85], [2.36, 48.86], [2.35, 48.85]]],
+          coordinates: [
+            [
+              [2.35, 48.85],
+              [2.36, 48.85],
+              [2.36, 48.86],
+              [2.35, 48.85],
+            ],
+          ],
         },
       },
     ];

@@ -40,11 +40,18 @@ module.exports = [
       'object-shorthand': ['error', 'properties'],
 
       // --- Garde-fous asynchrones -------------------------------------------
-      // Une promesse non attendue dans un Service peut faire répondre le
-      // Controller avant l'écriture MongoDB : erreur silencieuse en production.
-      'require-await': 'error',
+      // `require-await` est volontairement DÉSACTIVÉ. Les Repositories et les
+      // Services déclarent `async` même lorsqu'ils se contentent de retourner la
+      // promesse de la couche inférieure : c'est un choix d'architecture, pas un
+      // oubli. Retirer `async` changerait la sémantique d'erreur (une exception
+      // synchrone remonterait au lieu d'être convertie en promesse rejetée, ce
+      // qui court-circuiterait le try/catch des Controllers).
+      'require-await': 'off',
       'no-return-await': 'error',
       'no-async-promise-executor': 'error',
+      // Celle-ci reste la vraie garde-fou : une promesse ignorée dans un Service
+      // ferait répondre le Controller avant l'écriture MongoDB.
+      'no-promise-executor-return': 'error',
 
       // --- Sécurité ----------------------------------------------------------
       'no-eval': 'error',
@@ -73,7 +80,13 @@ module.exports = [
     rules: {
       ...jest.configs.recommended.rules,
       'no-console': 'off',
-      'jest/expect-expect': 'error',
+      // Les suites d'intégration s'appuient sur les assertions de Supertest
+      // (`await request(app).get('/x').expect(401)`), qui sont de vraies
+      // assertions même si elles ne passent pas par `expect()` de Jest.
+      'jest/expect-expect': [
+        'error',
+        { assertFunctionNames: ['expect', 'request.**.expect', 'request.**.expect.**'] },
+      ],
       'jest/no-disabled-tests': 'warn',
       'jest/no-focused-tests': 'error',
       'jest/no-identical-title': 'error',

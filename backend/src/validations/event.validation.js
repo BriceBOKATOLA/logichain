@@ -2,7 +2,9 @@ const Joi = require('joi');
 
 const geoPolygon = Joi.object({
   type: Joi.string().valid('Polygon').required(),
-  coordinates: Joi.array().items(Joi.array().items(Joi.array().items(Joi.number()).length(2))).required(),
+  coordinates: Joi.array()
+    .items(Joi.array().items(Joi.array().items(Joi.number()).length(2)))
+    .required(),
 });
 
 module.exports = {
@@ -11,10 +13,14 @@ module.exports = {
     startDate: Joi.date().iso().required(),
     endDate: Joi.date().iso().greater(Joi.ref('startDate')).required(),
     status: Joi.string().valid('draft', 'active', 'closed').optional(),
-    zones: Joi.array().items(Joi.object({
-      name: Joi.string().required(),
-      geometry: geoPolygon.required(),
-    })).optional(),
+    zones: Joi.array()
+      .items(
+        Joi.object({
+          name: Joi.string().required(),
+          geometry: geoPolygon.required(),
+        }),
+      )
+      .optional(),
   }),
   addZone: Joi.object({
     name: Joi.string().required(),

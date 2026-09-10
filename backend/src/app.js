@@ -44,12 +44,14 @@ class Application {
     // Désactivé en test : les suites d'intégration enchaînent des dizaines de requêtes
     // depuis la même IP et seraient rejetées de manière non déterministe.
     if (!env.isTest) {
-      this.app.use(rateLimit({
-        windowMs: env.rateLimit.windowMs,
-        max: env.rateLimit.max,
-        standardHeaders: true,
-        legacyHeaders: false,
-      }));
+      this.app.use(
+        rateLimit({
+          windowMs: env.rateLimit.windowMs,
+          max: env.rateLimit.max,
+          standardHeaders: true,
+          legacyHeaders: false,
+        }),
+      );
     }
   }
 
@@ -67,7 +69,9 @@ class Application {
 
     mountSwagger(this.app);
     this.app.use('/api/v1', routes);
-    this.app.use((req, res, next) => next(ApiError.notFound(`Route non trouvée: ${req.method} ${req.originalUrl}`)));
+    this.app.use((req, res, next) =>
+      next(ApiError.notFound(`Route non trouvée: ${req.method} ${req.originalUrl}`)),
+    );
   }
 
   _configureErrorHandling() {

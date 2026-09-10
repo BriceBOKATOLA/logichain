@@ -23,12 +23,25 @@ beforeAll(async () => {
   await mongoose.connect(uri, { autoIndex: true });
 });
 
-// Isolation stricte entre tests : chaque `it` part d'une base vide, ce qui rend
-// les suites indépendantes de leur ordre d'exécution.
+/**
+ * Isolation stricte entre tests : chaque `it` part d'une base vide, ce qui rend
+ * les suites indépendantes de leur ordre d'exécution.
+ *
+ * Deux familles de collections sont écartées du nettoyage :
+ *  - les collections système (`system.views`, `system.buckets.*`), que MongoDB
+ *    crée lui-même pour matérialiser les collections Time Series et sur
+ *    lesquelles toute écriture est refusée ;
+ *  - la collection Time Series `monitorings` elle-même : MongoDB n'y autorise
+ *    pas un `deleteMany({})` sans filtre. C'est un journal de métriques en
+ *    ajout seul, sur lequel aucune assertion inter-tests ne porte.
+ */
 afterEach(async () => {
   if (mongoose.connection.readyState !== 1) return;
-  const collections = await mongoose.connection.db.collections();
-  await Promise.all(collections.map((c) => c.deleteMany({})));
+
+  const infos = await mongoose.connection.db.listCollections().toArray();
+  const cleanable = infos.filter((i) => !i.name.startsWith('system.') && i.type !== 'timeseries');
+
+  await Promise.all(cleanable.map((i) => mongoose.connection.db.collection(i.name).deleteMany({})));
 });
 
 afterAll(async () => {
