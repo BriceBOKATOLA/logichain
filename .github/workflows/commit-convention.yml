@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Récupérer l'historique complet
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # Indispensable : sans l'historique, impossible de comparer la
           # branche à sa base pour isoler les commits de la PR.
