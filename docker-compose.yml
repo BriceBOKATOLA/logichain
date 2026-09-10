@@ -1,0 +1,41 @@
+# MongoDB doit tourner en Replica Set (même à un seul nœud) pour supporter
+# les transactions ACID utilisées par RouteService.validateStop().
+services:
+  mongo:
+    image: mongo:7
+    container_name: logichain-mongo
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh --quiet
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mongo-init:
+    image: mongo:7
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: >
+      mongosh --host mongo --eval
+      '
+      try {
+        rs.status();
+        print("Replica set déjà initialisé.");
+      } catch (e) {
+        // IMPORTANT : on déclare "localhost:27017" (pas "mongo:27017") car le
+        // backend Node tourne directement sur la machine hôte (npm run dev),
+        // pas dans un conteneur Docker. Si un jour le backend est lui aussi
+        // dockerisé sur le même réseau, il faudra remettre "mongo:27017" ici.
+        rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "localhost:27017" }] });
+        print("Replica set initialisé.");
+      }
+      '
+
+volumes:
+  mongo_data:

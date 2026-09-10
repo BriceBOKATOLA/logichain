@@ -1,0 +1,33 @@
+# Normalisation des fins de ligne : l'équipe travaille sous Windows, le serveur
+# de production et les runners CI sous Linux. Sans cette normalisation, chaque
+# aller-retour produirait un diff intégral et les scripts shell/Ansible poussés
+# avec des CRLF seraient rejetés par le shell Linux (`bad interpreter`).
+* text=auto eol=lf
+
+# Fichiers devant impérativement rester en LF (exécutés sous Linux).
+*.sh          text eol=lf
+*.yml         text eol=lf
+*.yaml        text eol=lf
+*.j2          text eol=lf
+gradlew       text eol=lf
+Dockerfile    text eol=lf
+
+# Fichiers Windows.
+*.bat         text eol=crlf
+*.cmd         text eol=crlf
+*.ps1         text eol=crlf
+
+# Binaires : jamais de conversion.
+*.png         binary
+*.jpg         binary
+*.jpeg        binary
+*.gif         binary
+*.ico         binary
+*.pdf         binary
+*.keystore    binary
+*.jar         binary
+*.apk         binary
+*.aab         binary
+
+# Fichiers générés : exclus des diffs et des statistiques de langage GitHub.
+package-lock.json  linguist-generated=true -diff

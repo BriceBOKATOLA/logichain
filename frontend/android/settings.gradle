@@ -1,0 +1,14 @@
+rootProject.name = 'LogiChainScaffold'
+// Use the community native modules settings and include the app only.
+// Include the React Native Gradle plugin so the `com.facebook.react` plugin
+// id is available to the included React Native source build.
+includeBuild("../node_modules/@react-native/gradle-plugin")
+
+// Include React Native source from node_modules so Android libraries can
+// resolve `com.facebook.react:react-native` as a composite project.
+// This avoids fetching React Native artifacts from remote repositories.
+includeBuild("../node_modules/react-native")
+
+apply from: file("../node_modules/@react-native-community/cli-platform-android/native_modules.gradle")
+applyNativeModulesSettingsGradle(settings)
+include ':app'
