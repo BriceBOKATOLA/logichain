@@ -21,8 +21,8 @@ infra/ansible/
 │   │   ├── hosts.yml
 │   │   └── group_vars/
 │   │       ├── logichain_servers.yml   variables NON sensibles (versionnées)
-│   │       ├── vault.yml               secrets CHIFFRÉS (hors dépôt)
-│   │       └── vault.yml.example       modèle versionné
+│   │       ├── vault.yml               secrets CHIFFRÉS AES-256 (versionnés ainsi)
+│   │       └── vault.yml.example       modèle documentant la forme attendue
 │   └── staging/                        structure identique
 ├── playbooks/
 │   ├── site.yml                reconstruction intégrale du serveur
@@ -120,7 +120,9 @@ Le pipeline `Sécurité` rejoue ces deux contrôles.
 ### Secrets
 
 Rien de sensible dans `group_vars/logichain_servers.yml` — ce fichier est
-versionné. Les secrets vivent dans `vault.yml`, chiffré :
+versionné en clair. Les secrets vivent dans `vault.yml`, versionné **uniquement
+sous forme chiffrée** (le job « Sécurité » de la CI le vérifie à chaque
+exécution) :
 
 ```bash
 ansible-vault encrypt inventories/production/group_vars/vault.yml

@@ -25,11 +25,27 @@ TLS, une URI de connexion contenant des identifiants, un secret de signature JWT
 | -------------------- | --------------------------------------------------------- | --------------------------------------------- |
 | Développement local  | `backend/.env`                                             | Exclu par `.gitignore` ; ne contient que des valeurs de démonstration |
 | Production           | `/opt/logichain/shared/.env` sur le serveur                | Fichier `0600`, propriété de `deploy`, généré par Ansible |
-| Source de vérité     | `infra/ansible/inventories/production/group_vars/vault.yml`| Chiffré AES-256 par Ansible Vault, **hors dépôt** |
+| Source de vérité     | `infra/ansible/inventories/production/group_vars/vault.yml`| **Chiffré AES-256** par Ansible Vault, versionné sous cette forme |
 | Pipelines CI/CD      | GitHub Secrets                                             | Chiffrés par GitHub, masqués dans les journaux |
-| Mot de passe du Vault| Poste de chaque développeur + secret GitHub                | Jamais dans le dépôt, jamais par messagerie   |
+| Mot de passe du Vault| Poste de chaque développeur + secret GitHub                | **Jamais** dans le dépôt, jamais par messagerie |
 
-Ce qui **est** versionné : `vault.yml.example` et `.env.example`, qui décrivent
+### Pourquoi `vault.yml` est versionné — et pourquoi ce n'est pas une entorse
+
+Le fichier est versionné **uniquement sous sa forme chiffrée** : ce que Git
+contient est un bloc AES-256 inexploitable sans le mot de passe. C'est la
+pratique canonique d'Ansible, et elle a deux avantages concrets :
+
+1. le pipeline de déploiement y accède directement, sans qu'un secret ait à
+   transiter par un canal hors Git ;
+2. l'historique du fichier documente **quand** un secret a été renouvelé, ce
+   qui est précieux lors d'un incident.
+
+L'exigence du §5 porte sur les secrets **en clair**. Elle est tenue par deux
+garde-fous : le job `Sécurité` fait échouer le pipeline si un `vault.yml`
+versionné ne commence pas par `$ANSIBLE_VAULT`, et le mot de passe qui l'ouvre
+n'est jamais dans le dépôt.
+
+Sont également versionnés `vault.yml.example` et `.env.example`, qui décrivent
 la **forme** des secrets attendus sans en révéler aucune valeur.
 
 ---
