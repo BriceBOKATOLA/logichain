@@ -10,7 +10,10 @@ on:
     branches: [main, develop]
   schedule:
     # Tous les lundis à 6 h : de nouvelles vulnérabilités sont publiées en
-    # permanence, y compris sur du code que personne n'a modifié.
+    # permanence, y compris sur du code que personne n'a modifié. C'est cette
+    # exécution planifiée qui assure la veille sur les dépendances — et non un
+    # robot ouvrant des Pull Requests, dont le volume noierait la revue de code
+    # sans rien apporter que ce rapport ne dise déjà.
     - cron: "0 6 * * 1"
   workflow_dispatch:
 

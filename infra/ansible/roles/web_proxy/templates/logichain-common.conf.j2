@@ -20,7 +20,11 @@ map $http_upgrade $connection_upgrade {
 
 # Compression : les réponses JSON de l'API sont très compressibles, ce qui
 # compte sur un réseau mobile de festival, souvent saturé.
-gzip on;
+#
+# `gzip on;` n'est PAS répété ici : la configuration par défaut d'Ubuntu
+# l'active déjà dans /etc/nginx/nginx.conf, et Nginx refuse de démarrer sur une
+# directive `gzip` dupliquée. On ne fait qu'affiner les réglages, qui eux sont
+# commentés dans la configuration par défaut.
 gzip_vary on;
 gzip_proxied any;
 gzip_comp_level 5;
