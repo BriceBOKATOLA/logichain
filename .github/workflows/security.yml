@@ -40,10 +40,14 @@ jobs:
         # Contrôle explicite et lisible, complémentaire de Gitleaks : il
         # échoue sur la PRÉSENCE du fichier, même si son contenu ne ressemble
         # à aucun motif de secret connu.
+        #
+        # `vault.yml` n'est volontairement PAS dans cette liste : il est
+        # versionné, mais uniquement chiffré — ce que vérifie l'étape suivante,
+        # dédiée. Voir docs/SECURITY.md §2.
         run: |
           set -euo pipefail
           echo "Fichiers suivis correspondant à un motif sensible :"
-          FOUND=$(git ls-files | grep -E '(^|/)\.env$|(^|/)\.env\.(local|production|development)$|\.pem$|\.p12$|id_rsa$|\.keystore$|(^|/)vault\.yml$' || true)
+          FOUND=$(git ls-files | grep -E '(^|/)\.env$|(^|/)\.env\.(local|production|development)$|\.pem$|\.p12$|(^|/)id_rsa$|(^|/)id_ed25519$|\.keystore$|(^|/)\.vault-pass$' || true)
           if [ -n "$FOUND" ]; then
             echo "$FOUND"
             echo "::error::Des fichiers sensibles sont versionnés. Retirez-les avec 'git rm --cached' et complétez .gitignore."
@@ -52,15 +56,23 @@ jobs:
           echo "  (aucun) — conforme."
 
       - name: Vérifier que le Vault Ansible est bien chiffré
+        # C'est LE garde-fou qui rend acceptable le versionnement de vault.yml :
+        # si quelqu'un le committait déchiffré — après un `ansible-vault edit`
+        # interrompu, par exemple — le pipeline échoue avant toute fusion.
         run: |
           set -euo pipefail
-          for f in $(git ls-files 'infra/ansible/**/vault.yml' || true); do
-            if ! head -1 "$f" | grep -q 'ANSIBLE_VAULT'; then
-              echo "::error::$f est versionné en CLAIR. Chiffrez-le : ansible-vault encrypt $f"
+          FOUND=0
+          for f in $(git ls-files '*vault.yml'); do
+            FOUND=1
+            if head -1 "$f" | grep -q 'ANSIBLE_VAULT'; then
+              echo "  OK (chiffré) : $f"
+            else
+              echo "::error file=$f::$f est versionné EN CLAIR. Chiffrez-le : ansible-vault encrypt $f"
               exit 1
             fi
           done
-          echo "Aucun Vault en clair."
+          [ "$FOUND" -eq 0 ] && echo "  Aucun fichier vault.yml versionné."
+          exit 0
 
   audit-backend:
     name: Audit des dépendances (backend)
