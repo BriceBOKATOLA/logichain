@@ -1,0 +1,13 @@
+---
+mongodb_version: "7.0"
+mongodb_port: 27017
+mongodb_bind_ip: 127.0.0.1
+mongodb_database: logichain
+mongodb_admin_user: logichain_admin
+mongodb_app_user: logichain_app
+mongodb_replica_set: rs0
+mongodb_data_path: /var/lib/mongodb
+mongodb_log_path: /var/log/mongodb/mongod.log
+# Sur un VPS 1 vCPU / 4 Go, on plafonne le cache WiredTiger pour laisser de la
+# mémoire à Node.js et Nginx. Valeur par défaut de MongoDB : 50 % de la RAM.
+mongodb_wiredtiger_cache_gb: 1

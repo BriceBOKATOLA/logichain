@@ -1,0 +1,65 @@
+---
+# ===========================================================================
+# Playbook de DÉPLOIEMENT APPLICATIF SEUL.
+#
+# C'est celui qu'exécute le pipeline de déploiement continu : il ne retouche
+# ni le système, ni MongoDB, ni Nginx. Il se contente de publier une nouvelle
+# release du code et de recharger l'API sans coupure — un déploiement doit
+# être l'opération la plus rapide et la moins risquée du cycle.
+#
+#   ansible-playbook -i inventories/production/hosts.yml playbooks/deploy.yml \
+#     -e app_repo_version=<sha-du-commit> \
+#     --extra-vars "@inventories/production/group_vars/vault.yml" --ask-vault-pass
+# ===========================================================================
+
+- name: Déployer une nouvelle release de l'API LogiChain
+  hosts: logichain_servers
+  become: true
+
+  pre_tasks:
+    - name: Vérifier que les secrets du Vault sont bien chargés
+      ansible.builtin.assert:
+        that:
+          - vault_jwt_access_secret is defined
+          - vault_mongodb_app_password is defined
+        fail_msg: "Secrets manquants : relancez avec --extra-vars \"@.../vault.yml\"."
+      no_log: true
+
+    - name: Sauvegarder la base avant le déploiement
+      # Un déploiement peut introduire une migration de données. Cette
+      # sauvegarde est le point de retour du rollback décrit dans le Runbook.
+      ansible.builtin.command:
+        cmd: /usr/local/bin/logichain-backup avant-deploiement
+      changed_when: true
+      failed_when: false
+      register: pre_deploy_backup
+
+    - name: Signaler l'absence de sauvegarde préalable
+      ansible.builtin.debug:
+        msg: >-
+          ATTENTION : la sauvegarde préalable a échoué
+          (le rôle backup a-t-il déjà été joué ?). Le déploiement continue,
+          mais aucun point de retour de données n'a été créé.
+      when: pre_deploy_backup.rc | default(1) != 0
+
+  roles:
+    - role: app_runtime
+      tags: [deploy]
+
+  post_tasks:
+    - name: Vérifier l'API à travers le reverse proxy
+      ansible.builtin.uri:
+        url: "{{ 'https' if app_domain | length > 0 else 'http' }}://{{ app_domain if app_domain | length > 0 else ansible_host }}/health"
+        status_code: 200
+        validate_certs: "{{ app_domain | length > 0 }}"
+      register: public_health
+      retries: 5
+      delay: 5
+      until: public_health.status == 200
+
+    - name: Récapitulatif
+      ansible.builtin.debug:
+        msg:
+          - "Release déployée : {{ release_timestamp | default('inchangée') }}"
+          - "Révision Git     : {{ deployed_revision | default('inconnue') }}"
+          - "Sauvegarde       : {{ 'OK' if pre_deploy_backup.rc | default(1) == 0 else 'ÉCHOUÉE' }}"

@@ -1,0 +1,115 @@
+---
+# ===========================================================================
+# Playbook de ROLLBACK — retour à la release précédente.
+#
+# Le déploiement conserve les {{ app_keep_releases }} dernières releases : le
+# retour arrière consiste simplement à repointer le lien `current` sur l'une
+# d'elles, puis à recharger PM2. Aucune réinstallation, aucun téléchargement :
+# l'opération prend quelques secondes, ce qui est exactement ce qu'on attend
+# d'une procédure d'urgence.
+#
+#   # Revenir à la release immédiatement précédente :
+#   ansible-playbook -i inventories/production/hosts.yml playbooks/rollback.yml
+#
+#   # Revenir à une release précise :
+#   ansible-playbook ... playbooks/rollback.yml -e rollback_to=20260910T143000
+# ===========================================================================
+
+- name: Revenir à une release précédente de l'API LogiChain
+  hosts: logichain_servers
+  become: true
+
+  tasks:
+    - name: Lister les releases disponibles
+      ansible.builtin.find:
+        paths: "{{ app_releases_dir }}"
+        file_type: directory
+        recurse: false
+      register: available_releases
+
+    - name: Ordonner les releases de la plus récente à la plus ancienne
+      ansible.builtin.set_fact:
+        sorted_releases: >-
+          {{ available_releases.files | map(attribute='path') | sort | reverse | list }}
+
+    - name: Relever la release actuellement active
+      ansible.builtin.stat:
+        path: "{{ app_current_dir }}"
+      register: current_link
+
+    - name: Afficher l'état courant
+      ansible.builtin.debug:
+        msg:
+          - "Release active : {{ current_link.stat.lnk_target | default('aucune') | basename }}"
+          - "Disponibles    : {{ sorted_releases | map('basename') | list | join(', ') }}"
+
+    - name: Refuser le rollback s'il n'existe pas de release antérieure
+      ansible.builtin.assert:
+        that:
+          - sorted_releases | length >= 2
+        fail_msg: >-
+          Rollback impossible : {{ sorted_releases | length }} release(s) sur le
+          serveur. Il en faut au moins deux. Restaurez une sauvegarde de la base
+          et redéployez une révision antérieure (voir docs/RUNBOOK.md).
+
+    - name: Déterminer la release cible
+      ansible.builtin.set_fact:
+        # Soit la release explicitement demandée, soit celle qui précède
+        # immédiatement la release active.
+        rollback_target: >-
+          {{ (app_releases_dir ~ '/' ~ rollback_to)
+             if rollback_to is defined
+             else (sorted_releases | reject('equalto', current_link.stat.lnk_target) | first) }}
+
+    - name: Vérifier que la release cible existe
+      ansible.builtin.stat:
+        path: "{{ rollback_target }}"
+      register: rollback_target_stat
+
+    - name: Refuser une cible inexistante
+      ansible.builtin.assert:
+        that:
+          - rollback_target_stat.stat.exists
+          - rollback_target_stat.stat.isdir
+        fail_msg: "Release cible introuvable : {{ rollback_target }}"
+
+    - name: Sauvegarder la base avant le retour arrière
+      ansible.builtin.command:
+        cmd: /usr/local/bin/logichain-backup avant-rollback
+      changed_when: true
+      failed_when: false
+
+    - name: Repointer « current » sur la release cible
+      ansible.builtin.file:
+        src: "{{ rollback_target }}"
+        dest: "{{ app_current_dir }}"
+        state: link
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+      become_user: "{{ app_user }}"
+
+    - name: Recharger l'API
+      ansible.builtin.command:
+        cmd: pm2 reload {{ pm2_app_name }} --update-env
+      become_user: "{{ app_user }}"
+      environment:
+        PM2_HOME: "/home/{{ app_user }}/.pm2"
+      changed_when: true
+
+    - name: Vérifier que l'API répond après le retour arrière
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ app_port }}/health"
+        status_code: 200
+      register: health_after_rollback
+      retries: 10
+      delay: 3
+      until: health_after_rollback.status == 200
+
+    - name: Récapitulatif du rollback
+      ansible.builtin.debug:
+        msg:
+          - "Rollback effectué."
+          - "Release active : {{ rollback_target | basename }}"
+          - "Santé de l'API : {{ health_after_rollback.json.status }}"
+          - "Si le problème venait des DONNÉES et non du code, restaurez aussi"
+          - "une sauvegarde : logichain-restore <archive> --force"

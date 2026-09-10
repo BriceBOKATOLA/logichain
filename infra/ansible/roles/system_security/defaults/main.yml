@@ -1,0 +1,32 @@
+---
+# Valeurs par défaut du rôle system_security. Elles sont surchargées par les
+# group_vars de l'inventaire : ce fichier documente le contrat du rôle et lui
+# permet d'être exécuté seul, sans inventaire complet.
+app_user: deploy
+app_group: deploy
+ssh_port: 22
+deploy_authorized_keys: []
+
+system_base_packages:
+  - ufw
+  - fail2ban
+  - curl
+  - ca-certificates
+  - gnupg
+  - git
+  - rsync
+  - acl # requis par Ansible pour `become_user` non privilégié
+  - python3-pip
+  - unzip
+  - htop
+
+ufw_allowed_ports:
+  - { port: "22", proto: tcp, comment: "SSH" }
+  - { port: "80", proto: tcp, comment: "HTTP" }
+  - { port: "443", proto: tcp, comment: "HTTPS" }
+
+fail2ban_bantime: 3600
+fail2ban_findtime: 600
+fail2ban_maxretry: 5
+unattended_upgrades_enabled: true
+timezone: Europe/Paris
