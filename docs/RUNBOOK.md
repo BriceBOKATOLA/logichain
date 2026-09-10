@@ -455,3 +455,16 @@ Points connus, assumés, à traiter par l'équipe qui reprend :
 5. **Rotation des secrets** — aucune procédure planifiée. À définir (les
    secrets JWT peuvent être renouvelés en modifiant le Vault et en redéployant,
    au prix d'une déconnexion de tous les agents).
+6. **Migration d'Expo SDK 54** — l'audit du client mobile signale des
+   vulnérabilités `high` situées dans l'arbre de dépendances interne d'Expo
+   (`@expo/config`, `expo-constants`, `expo-asset`, `@expo/cli`). Aucune n'est
+   corrigeable depuis ce dépôt : il faut migrer vers un SDK majeur supérieur,
+   ce qui touche les modules natifs et exige une campagne de tests sur
+   appareils réels. Le job `Audit des dépendances (mobile)` produit le rapport
+   à chaque exécution sans bloquer le pipeline.
+7. **Mise à jour des dépendances** — volontairement manuelle. Le job `Sécurité`
+   s'exécute chaque lundi et signale les vulnérabilités ; c'est l'équipe qui
+   décide de la montée de version, dans une branche `chore/`, avec la CI
+   complète comme filet. Un robot ouvrant automatiquement une Pull Request par
+   dépendance a été essayé puis retiré : le volume noyait la revue de code sans
+   rien apporter que ce rapport hebdomadaire ne dise déjà.
