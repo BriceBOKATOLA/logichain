@@ -1,0 +1,106 @@
+---
+# --- Déploiement d'une nouvelle release ------------------------------------
+
+- name: Définir le chemin de la nouvelle release
+  ansible.builtin.set_fact:
+    release_timestamp: "{{ ansible_date_time.iso8601_basic_short }}"
+    release_path: "{{ app_releases_dir }}/{{ ansible_date_time.iso8601_basic_short }}"
+
+- name: Récupérer le code source depuis le dépôt Git
+  ansible.builtin.git:
+    repo: "{{ app_repo_url }}"
+    dest: "{{ release_path }}"
+    version: "{{ app_repo_version }}"
+    depth: 1
+    # Le répertoire d'une release est immuable : toute modification manuelle
+    # sur le serveur doit être écrasée, jamais fusionnée.
+    force: true
+  become: true
+  become_user: "{{ app_user }}"
+  register: git_checkout
+
+- name: Relever la révision réellement déployée
+  ansible.builtin.set_fact:
+    deployed_revision: "{{ git_checkout.after | default('inconnue') }}"
+
+- name: Lier le fichier d'environnement partagé dans la release
+  # Un lien symbolique plutôt qu'une copie : le jour où l'on fait tourner un
+  # rollback, la release restaurée pointe automatiquement sur les secrets
+  # courants sans qu'il faille les redéployer.
+  ansible.builtin.file:
+    src: "{{ app_shared_dir }}/.env"
+    dest: "{{ release_path }}/{{ app_backend_subdir }}/.env"
+    state: link
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+  become: true
+  become_user: "{{ app_user }}"
+
+- name: Installer les dépendances de production
+  # `npm ci` (et non `npm install`) : installation reproductible à l'identique
+  # depuis package-lock.json, sans jamais résoudre de nouvelle version. C'est
+  # la traduction concrète de l'exigence de reproductibilité intégrale.
+  community.general.npm:
+    path: "{{ release_path }}/{{ app_backend_subdir }}"
+    ci: true
+    production: true
+    state: present
+  become: true
+  become_user: "{{ app_user }}"
+
+- name: Générer le fichier de configuration PM2
+  ansible.builtin.template:
+    src: ecosystem.config.js.j2
+    dest: "{{ release_path }}/{{ app_backend_subdir }}/ecosystem.config.js"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0644"
+
+- name: Synchroniser les index MongoDB
+  # Idempotent (`syncIndexes`) et exécuté avant la bascule : si l'indexation
+  # échoue, l'ancienne release reste en service.
+  ansible.builtin.command:
+    cmd: node scripts/ensure-indexes.js
+    chdir: "{{ release_path }}/{{ app_backend_subdir }}"
+  become: true
+  become_user: "{{ app_user }}"
+  register: ensure_indexes
+  changed_when: false
+
+- name: Basculer le lien « current » sur la nouvelle release
+  # Bascule atomique : `ln -sfn` via le module file remplace le lien en une
+  # seule opération, sans instant où `current` pointerait dans le vide.
+  ansible.builtin.file:
+    src: "{{ release_path }}"
+    dest: "{{ app_current_dir }}"
+    state: link
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+  become: true
+  become_user: "{{ app_user }}"
+  notify: reload api
+
+- name: Lister les releases présentes
+  ansible.builtin.find:
+    paths: "{{ app_releases_dir }}"
+    file_type: directory
+    recurse: false
+  register: existing_releases
+
+- name: Déterminer les releases à purger
+  # Les noms de release sont des horodatages : un tri alphabétique est donc
+  # aussi un tri chronologique. On retire les N plus récentes de la liste,
+  # tout le reste part à la poubelle.
+  ansible.builtin.set_fact:
+    releases_to_prune: >-
+      {{ (existing_releases.files | map(attribute='path') | sort | list)[: -(app_keep_releases | int)] }}
+
+- name: Purger les releases les plus anciennes
+  # On conserve {{ app_keep_releases }} releases : assez pour revenir en
+  # arrière plusieurs fois, pas assez pour saturer les 49 Go du VPS.
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ releases_to_prune }}"
+  loop_control:
+    label: "{{ item | basename }}"

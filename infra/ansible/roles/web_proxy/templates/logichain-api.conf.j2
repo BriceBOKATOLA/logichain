@@ -1,0 +1,110 @@
+# {{ ansible_managed }}
+# Reverse proxy de l'API LogiChain.
+{% set server_name = app_domain if app_domain | length > 0 else '_' %}
+
+{% if tls_enabled %}
+# --- Redirection HTTP -> HTTPS ---------------------------------------------
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{ server_name }};
+
+    # Le challenge ACME doit rester joignable en clair pour permettre le
+    # renouvellement automatique du certificat.
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/letsencrypt;
+        default_type "text/plain";
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# --- Vhost HTTPS ------------------------------------------------------------
+server {
+    # Forme `listen ... http2` et non la directive `http2 on;` : cette dernière
+    # n'existe qu'à partir de Nginx 1.25.1, alors qu'Ubuntu 22.04 livre 1.18.
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name {{ server_name }};
+
+    ssl_certificate     /etc/letsencrypt/live/{{ app_domain }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ app_domain }}/privkey.pem;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+    ssl_session_tickets off;
+
+    # HSTS : une fois le site visité en HTTPS, le navigateur refuse toute
+    # connexion en clair pendant 6 mois.
+    add_header Strict-Transport-Security "max-age=15768000; includeSubDomains" always;
+{% else %}
+# --- Vhost HTTP seul --------------------------------------------------------
+# Aucun certificat TLS disponible : l'API est servie en clair. Renseignez
+# `app_domain` et `letsencrypt_email` dans les group_vars, faites pointer le
+# DNS sur ce serveur, puis relancez le playbook pour basculer en HTTPS.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{ server_name }};
+
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/letsencrypt;
+        default_type "text/plain";
+    }
+{% endif %}
+
+    # En-têtes de sécurité complémentaires à ceux posés par Helmet côté API.
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "no-referrer" always;
+
+    access_log /var/log/nginx/logichain-access.log;
+    error_log  /var/log/nginx/logichain-error.log;
+
+    # --- Sonde de santé ------------------------------------------------------
+    # Exclue de la limitation de débit : les sondes de supervision et le
+    # smoke-test du pipeline CD ne doivent jamais être bloqués.
+    location = /health {
+        proxy_pass http://127.0.0.1:{{ app_port }}/health;
+        access_log off;
+        include /etc/nginx/proxy_params;
+    }
+
+    # --- WebSocket temps réel (Socket.IO) -----------------------------------
+    location /socket.io/ {
+        proxy_pass http://127.0.0.1:{{ app_port }};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # Une connexion WebSocket reste ouverte tant que l'agent est en poste :
+        # le délai d'inactivité par défaut (60 s) la couperait sans cesse.
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    # --- API REST ------------------------------------------------------------
+    location / {
+        limit_req zone=logichain_api burst={{ nginx_rate_limit_burst }} nodelay;
+
+        proxy_pass http://127.0.0.1:{{ app_port }};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        # C'est cet en-tête que lit Express grâce à TRUST_PROXY=1 : sans lui,
+        # le rate-limit applicatif verrait la même IP pour tous les clients.
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 60s;
+        proxy_send_timeout 60s;
+    }
+}

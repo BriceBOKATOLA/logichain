@@ -1,0 +1,44 @@
+# {{ ansible_managed }}
+# Configuration MongoDB LogiChain — gérée par Ansible, toute édition manuelle
+# sera écrasée au prochain déploiement.
+
+storage:
+  dbPath: {{ mongodb_data_path }}
+  wiredTiger:
+    engineConfig:
+      # Plafonné pour laisser de la mémoire à Node.js et Nginx sur ce VPS.
+      cacheSizeGB: {{ mongodb_wiredtiger_cache_gb }}
+
+systemLog:
+  destination: file
+  logAppend: true
+  path: {{ mongodb_log_path }}
+
+net:
+  port: {{ mongodb_port }}
+  # Écoute strictement locale : la base n'est pas exposée à Internet, et UFW
+  # ne laisse de toute façon passer que 22/80/443.
+  bindIp: {{ mongodb_bind_ip }}
+  maxIncomingConnections: 200
+
+processManagement:
+  timeZoneInfo: /usr/share/zoneinfo
+
+security:
+  # Toute connexion doit s'authentifier — y compris depuis la machine locale.
+  authorization: enabled
+  # Authentification interne entre membres du replica set : obligatoire dès que
+  # `authorization` est activée sur un jeu de réplicas, même à un seul nœud.
+  keyFile: /etc/mongodb-keyfile
+
+replication:
+  # Un seul nœud, mais un vrai replica set : c'est la condition technique des
+  # transactions ACID multi-documents (session.withTransaction) utilisées par
+  # la couche Service de l'API.
+  replSetName: {{ mongodb_replica_set }}
+
+operationProfiling:
+  # Journalise les requêtes dépassant 200 ms : sert à identifier les goulots
+  # d'étranglement décrits dans le Runbook.
+  mode: slowOp
+  slowOpThresholdMs: 200

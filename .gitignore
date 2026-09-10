@@ -22,8 +22,8 @@ id_rsa
 id_rsa.*
 .vault_pass
 .vault_pass.txt
-infra/ansible/inventories/**/host_vars/**/vault.yml
-!infra/ansible/inventories/**/host_vars/**/vault.yml.example
+infra/ansible/inventories/**/vault.yml
+!infra/ansible/inventories/**/vault.yml.example
 
 # --- Build & artefacts -----------------------------------------------------
 dist/
@@ -56,6 +56,13 @@ frontend/ios/Pods/
 *.jsbundle
 *.keystore
 !frontend/android/app/debug.keystore.example
+
+# --- Outils de développement locaux ----------------------------------------
+# Réglages propres au poste de chaque développeur : ils n'ont rien à faire
+# dans un dépôt partagé.
+.claude/
+.aider*
+.cursor/
 
 # --- IDE / OS --------------------------------------------------------------
 .idea/

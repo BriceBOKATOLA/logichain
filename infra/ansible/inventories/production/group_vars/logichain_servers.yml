@@ -1,0 +1,82 @@
+---
+# ---------------------------------------------------------------------------
+# Variables NON SENSIBLES de l'environnement de production.
+# Tout ce qui est secret (mots de passe MongoDB, secrets JWT) vit exclusivement
+# dans `vault.yml`, chiffré par Ansible Vault et jamais commité en clair.
+# ---------------------------------------------------------------------------
+
+env_name: production
+
+# --- Identité applicative ---------------------------------------------------
+app_name: logichain
+app_user: deploy
+app_group: deploy
+app_root: /opt/logichain
+app_current_dir: "{{ app_root }}/current"
+app_releases_dir: "{{ app_root }}/releases"
+app_shared_dir: "{{ app_root }}/shared"
+# Nombre de releases conservées pour permettre un rollback immédiat (cf. Runbook).
+app_keep_releases: 5
+
+# --- Runtime Node.js --------------------------------------------------------
+nodejs_major_version: 20
+app_port: 4000
+pm2_app_name: logichain-api
+# Le VPS cible dispose d'1 vCPU : une seule instance. Ajouter des workers
+# cluster au-delà du nombre de cœurs dégraderait les performances (contention
+# CPU avec MongoDB et Nginx) au lieu de les améliorer.
+pm2_instances: 1
+# Redémarrage automatique si le processus dépasse ce seuil (fuite mémoire).
+pm2_max_memory_restart: 400M
+
+# --- Dépôt applicatif -------------------------------------------------------
+app_repo_url: https://github.com/BriceBOKATOLA/logichain.git
+app_repo_branch: main
+
+# --- Réseau / reverse proxy -------------------------------------------------
+# Domaine pointé sur le VPS. Renseigné => Nginx sert en HTTPS et un certificat
+# Let's Encrypt est obtenu/renouvelé automatiquement. Vidé => HTTP seul par IP.
+app_domain: "logichain.online"
+# Adresse de contact Let's Encrypt (alertes d'expiration de certificat).
+letsencrypt_email: "ebangarodmilson@gmail.com"
+nginx_client_max_body_size: 10m
+# CORS strict : la configuration env.js refuse '*' en production.
+app_cors_origin: "{{ 'https://' + app_domain if app_domain | length > 0 else 'http://' + ansible_host }}"
+
+# --- MongoDB ----------------------------------------------------------------
+mongodb_version: "7.0"
+mongodb_port: 27017
+# Écoute uniquement sur la boucle locale : la base n'est JAMAIS exposée à
+# Internet, l'API et la base tournant sur le même hôte.
+mongodb_bind_ip: 127.0.0.1
+mongodb_database: logichain
+mongodb_app_user: logichain_app
+mongodb_admin_user: logichain_admin
+# Replica set à un nœud : requis par les transactions ACID de RouteService.
+mongodb_replica_set: rs0
+
+# --- Sauvegardes ------------------------------------------------------------
+backup_dir: /var/backups/logichain
+backup_retention_days: 14
+backup_cron_hour: "3"
+backup_cron_minute: "30"
+
+# --- Sécurité système -------------------------------------------------------
+ssh_port: 22
+# Clés publiques autorisées pour l'utilisateur de service `deploy`.
+# Ce sont des clés PUBLIQUES : les versionner est sans risque, et c'est même
+# souhaitable pour tracer qui a accès au serveur de production.
+# Retirer une ligne ici révoque l'accès au prochain passage du playbook.
+deploy_authorized_keys:
+  # Clé de déploiement utilisée par le pipeline CI/CD (secret DEPLOY_SSH_KEY).
+  - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKV+30ml60xs5ZWwUrgU78CWo0TexX+B5dKChmaYdc90 logichain-deploy@ci"
+  # Poste de développement de l'équipe.
+  - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDXj/QPD3HCuPNAAFWJkUCi/eV/zLrunnoMBVGJeYGBX pc@DESKTOP-B46OOHK"
+ufw_allowed_ports:
+  - { port: "{{ ssh_port }}", proto: tcp, comment: "SSH" }
+  - { port: "80", proto: tcp, comment: "HTTP (redirection vers HTTPS)" }
+  - { port: "443", proto: tcp, comment: "HTTPS" }
+fail2ban_bantime: 3600
+fail2ban_findtime: 600
+fail2ban_maxretry: 5
+unattended_upgrades_enabled: true

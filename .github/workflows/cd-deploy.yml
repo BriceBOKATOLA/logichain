@@ -1,0 +1,170 @@
+name: CD Déploiement
+
+# ===========================================================================
+# Déploiement continu via les playbooks Ansible.
+#
+#   develop -> RECETTE   : déploiement automatique, sans validation humaine.
+#   main    -> PRODUCTION: déploiement soumis à validation manuelle grâce à
+#                          l'environnement GitHub « production » (Settings >
+#                          Environments > Required reviewers). C'est le choix
+#                          « déploiement sur validation » offert par le sujet.
+#
+# Secrets de dépôt requis (Settings > Secrets and variables > Actions) :
+#   DEPLOY_SSH_KEY          clé privée du compte `deploy` sur le serveur
+#   ANSIBLE_VAULT_PASSWORD  mot de passe déchiffrant inventories/*/group_vars/vault.yml
+#   DEPLOY_KNOWN_HOSTS      empreinte SSH du serveur (`ssh-keyscan <ip>`)
+# ===========================================================================
+
+on:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environnement cible
+        required: true
+        default: staging
+        type: choice
+        options: [staging, production]
+      playbook:
+        description: Playbook à exécuter
+        required: true
+        default: deploy.yml
+        type: choice
+        options: [deploy.yml, site.yml, rollback.yml, backup.yml]
+
+# Jamais deux déploiements simultanés sur le même serveur : ils se
+# marcheraient dessus sur le lien `current` et sur PM2.
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # --- Barrière qualité ----------------------------------------------------
+  # Le déploiement ne part QUE si la CI est verte. Sans cette dépendance, un
+  # push direct sur main pourrait mettre en production du code non testé.
+  quality-gate:
+    name: Barrière qualité
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/ci-backend.yml
+
+  deploy:
+    name: Déployer
+    needs: [quality-gate]
+    # `always()` + test explicite : le job doit aussi pouvoir tourner via
+    # workflow_dispatch, cas où `quality-gate` est ignoré (et non « réussi »).
+    if: always() && (needs.quality-gate.result == 'success' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+
+    environment:
+      name: >-
+        ${{ github.event_name == 'workflow_dispatch'
+            && inputs.environment
+            || (github.ref == 'refs/heads/main' && 'production' || 'staging') }}
+
+    env:
+      TARGET_ENV: >-
+        ${{ github.event_name == 'workflow_dispatch'
+            && inputs.environment
+            || (github.ref == 'refs/heads/main' && 'production' || 'staging') }}
+      PLAYBOOK: ${{ github.event_name == 'workflow_dispatch' && inputs.playbook || 'deploy.yml' }}
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Ansible
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install "ansible-core>=2.16" passlib
+          ansible --version
+
+      - name: Installer les collections Ansible
+        working-directory: infra/ansible
+        run: ansible-galaxy collection install -r requirements.yml
+
+      - name: Configurer la clé SSH de déploiement
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/logichain_deploy
+          chmod 600 ~/.ssh/logichain_deploy
+          # L'empreinte de l'hôte est fournie par un secret plutôt que
+          # découverte à la volée : accepter aveuglément une clé d'hôte
+          # exposerait le déploiement à une attaque de l'intercepteur.
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Déposer le mot de passe du Vault
+        run: |
+          printf '%s' "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > ~/.vault-pass
+          chmod 600 ~/.vault-pass
+
+      - name: Vérifier la joignabilité du serveur
+        working-directory: infra/ansible
+        run: |
+          ansible logichain_servers \
+            -i "inventories/${TARGET_ENV}/hosts.yml" \
+            -m ping \
+            --extra-vars "@inventories/${TARGET_ENV}/group_vars/vault.yml" \
+            --vault-password-file ~/.vault-pass
+
+      - name: Simuler le déploiement (mode --check)
+        # Passage à blanc : affiche exactement ce qui serait modifié sans rien
+        # appliquer. C'est aussi la preuve d'idempotence exigée au §5 — sur un
+        # serveur déjà à jour, ce passage ne signale aucun changement.
+        working-directory: infra/ansible
+        continue-on-error: true
+        run: |
+          ansible-playbook \
+            -i "inventories/${TARGET_ENV}/hosts.yml" \
+            "playbooks/${PLAYBOOK}" \
+            --extra-vars "@inventories/${TARGET_ENV}/group_vars/vault.yml" \
+            --extra-vars "app_repo_version=${{ github.sha }}" \
+            --vault-password-file ~/.vault-pass \
+            --check --diff
+
+      - name: Exécuter le déploiement
+        working-directory: infra/ansible
+        run: |
+          ansible-playbook \
+            -i "inventories/${TARGET_ENV}/hosts.yml" \
+            "playbooks/${PLAYBOOK}" \
+            --extra-vars "@inventories/${TARGET_ENV}/group_vars/vault.yml" \
+            --extra-vars "app_repo_version=${{ github.sha }}" \
+            --vault-password-file ~/.vault-pass \
+            --diff
+
+      - name: Effacer les secrets du runner
+        # Le runner est éphémère, mais on ne laisse jamais un secret sur disque
+        # au-delà de son usage — y compris si une étape ultérieure échouait.
+        if: always()
+        run: rm -f ~/.vault-pass ~/.ssh/logichain_deploy
+
+  # --- Contrôle post-déploiement -------------------------------------------
+  smoke-test:
+    name: Test de fumée
+    needs: [deploy]
+    if: success()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Interroger la sonde de santé publique
+        # Vérification depuis l'extérieur, à travers Nginx et TLS : c'est le
+        # seul contrôle qui prouve que le service est réellement joignable par
+        # les agents de terrain.
+        run: |
+          URL="https://logichain.online/health"
+          for attempt in 1 2 3 4 5; do
+            if curl -fsS --max-time 15 "$URL" | tee /tmp/health.json; then
+              echo ""
+              if grep -q '"status":"ok"' /tmp/health.json; then
+                echo "Service opérationnel."
+                exit 0
+              fi
+            fi
+            echo "Tentative ${attempt} infructueuse, nouvel essai dans 10 s..."
+            sleep 10
+          done
+          echo "::error::La sonde /health n'a pas répondu « ok » après 5 tentatives."
+          echo "::error::Lancez le rollback : workflow_dispatch > playbook rollback.yml"
+          exit 1

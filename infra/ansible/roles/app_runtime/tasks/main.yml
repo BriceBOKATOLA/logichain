@@ -1,0 +1,22 @@
+---
+# ===========================================================================
+# Rôle Application Runtime — Node.js + PM2
+#
+# Stratégie de déploiement « par releases » : chaque déploiement crée un
+# répertoire horodaté sous releases/, y installe les dépendances, puis bascule
+# le lien symbolique `current` dessus. La bascule est atomique et le rollback
+# consiste simplement à repointer `current` sur la release précédente
+# (cf. playbooks/rollback.yml et docs/RUNBOOK.md).
+# ===========================================================================
+
+- name: Inclure l'installation de Node.js
+  ansible.builtin.import_tasks: nodejs.yml
+
+- name: Inclure la préparation de l'arborescence
+  ansible.builtin.import_tasks: layout.yml
+
+- name: Inclure le déploiement de la release
+  ansible.builtin.import_tasks: deploy.yml
+
+- name: Inclure la supervision PM2
+  ansible.builtin.import_tasks: pm2.yml

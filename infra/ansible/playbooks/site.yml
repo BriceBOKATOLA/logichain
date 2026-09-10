@@ -1,0 +1,91 @@
+---
+# ===========================================================================
+# Playbook MAÎTRE — reconstruction intégrale du serveur depuis une machine
+# vierge, en une seule commande.
+#
+#   ansible-playbook -i inventories/production/hosts.yml playbooks/site.yml \
+#     --extra-vars "@inventories/production/group_vars/vault.yml" --ask-vault-pass
+#
+# Premier passage sur un serveur neuf (seul root existe encore) :
+#   ... playbooks/site.yml -e ansible_user=root
+#
+# Ce playbook est idempotent : l'exécuter dix fois de suite laisse le serveur
+# dans le même état et ne rapporte aucun « changed » au-delà du premier
+# passage (hors mises à jour de paquets publiées entre-temps).
+# ===========================================================================
+
+- name: Provisionner et déployer la plateforme LogiChain
+  hosts: logichain_servers
+  become: true
+
+  pre_tasks:
+    - name: Vérifier que les secrets du Vault sont bien chargés
+      # Sans cette garde, un oubli de `--extra-vars "@vault.yml"` produirait un
+      # fichier .env contenant la chaîne littérale « {{ vault_... }} » et une
+      # API qui refuserait de démarrer, avec un message peu parlant.
+      ansible.builtin.assert:
+        that:
+          - vault_jwt_access_secret is defined
+          - vault_jwt_refresh_secret is defined
+          - vault_mongodb_admin_password is defined
+          - vault_mongodb_app_password is defined
+        fail_msg: >-
+          Secrets manquants. Lancez le playbook avec :
+          --extra-vars "@inventories/{{ env_name }}/group_vars/vault.yml" --ask-vault-pass
+          (voir vault.yml.example et docs/RUNBOOK.md).
+        success_msg: "Secrets du Vault chargés."
+      no_log: true
+
+    - name: Collecter les informations système
+      ansible.builtin.setup:
+
+  roles:
+    # L'ordre est significatif :
+    #   1. sécuriser la machine avant d'y installer quoi que ce soit ;
+    #   2. la base doit être prête avant que l'API ne tente de s'y connecter ;
+    #   3. l'API doit répondre avant que Nginx ne lui envoie du trafic ;
+    #   4. la sauvegarde se configure en dernier, une fois la base peuplée.
+    - role: system_security
+      tags: [system, security]
+
+    - role: database
+      tags: [database, mongodb]
+
+    - role: app_runtime
+      tags: [app, deploy]
+
+    - role: web_proxy
+      tags: [web, nginx, tls]
+
+    - role: backup
+      tags: [backup]
+
+  post_tasks:
+    - name: Vérifier l'API à travers le reverse proxy
+      # Contrôle de bout en bout : cette requête traverse Nginx, atteint
+      # Node.js et vérifie la connexion MongoDB. Si elle passe, toute la
+      # chaîne est fonctionnelle.
+      ansible.builtin.uri:
+        url: "{{ 'https' if tls_enabled | default(false) else 'http' }}://{{ app_domain if app_domain | length > 0 else ansible_host }}/health"
+        return_content: true
+        status_code: 200
+        validate_certs: "{{ tls_enabled | default(false) }}"
+      register: public_health
+      retries: 5
+      delay: 5
+      until: public_health.status == 200
+      tags: [verify]
+
+    - name: Récapitulatif du déploiement
+      ansible.builtin.debug:
+        msg:
+          - "=========================================================="
+          - "LogiChain déployé sur {{ inventory_hostname }} ({{ env_name }})"
+          - "----------------------------------------------------------"
+          - "URL publique  : {{ 'https' if tls_enabled | default(false) else 'http' }}://{{ app_domain if app_domain | length > 0 else ansible_host }}"
+          - "Santé         : {{ public_health.json.status }} / base {{ public_health.json.database }}"
+          - "Documentation : /api-docs"
+          - "Release       : {{ release_timestamp | default('inchangée') }}"
+          - "Révision Git  : {{ deployed_revision | default('inconnue') }}"
+          - "=========================================================="
+      tags: [verify]

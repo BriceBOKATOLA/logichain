@@ -49,13 +49,22 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: colors.surface }, headerTintColor: colors.textPrimary }}>
+      <Stack.Navigator
+        screenOptions={{
+          headerStyle: { backgroundColor: colors.surface },
+          headerTintColor: colors.textPrimary,
+        }}
+      >
         {!user ? (
           <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
         ) : (
           <>
             <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
-            <Stack.Screen name="Anomaly" component={AnomalyDeclarationScreen} options={{ title: 'Anomalie' }} />
+            <Stack.Screen
+              name="Anomaly"
+              component={AnomalyDeclarationScreen}
+              options={{ title: 'Anomalie' }}
+            />
             <Stack.Screen name="Map" component={MapScreen} options={{ title: 'Carte' }} />
           </>
         )}

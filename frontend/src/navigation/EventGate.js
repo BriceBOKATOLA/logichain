@@ -25,7 +25,7 @@ export default function EventGate() {
     return (
       <View style={styles.center}>
         <ActivityIndicator color={colors.primary} size="large" />
-        <Text style={styles.text}>Connexion à l'événement actif…</Text>
+        <Text style={styles.text}>Connexion à l&apos;événement actif…</Text>
       </View>
     );
   }
@@ -49,6 +49,12 @@ export default function EventGate() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
+  center: {
+    flex: 1,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xl,
+  },
   text: { ...typography.body, textAlign: 'center', marginTop: spacing.md },
 });

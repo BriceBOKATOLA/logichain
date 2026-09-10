@@ -1,0 +1,43 @@
+name: Convention de commit
+
+# Applique la « politique de commit (Standard Conventional Commits) » exigée
+# au §4.1 du cahier des charges. Une convention non outillée n'est qu'un
+# souhait : ce job la rend contraignante.
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  commitlint:
+    name: Vérifier les messages de commit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer l'historique complet
+        uses: actions/checkout@v4
+        with:
+          # Indispensable : sans l'historique, impossible de comparer la
+          # branche à sa base pour isoler les commits de la PR.
+          fetch-depth: 0
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Installer commitlint
+        run: npm install --no-save @commitlint/cli@19 @commitlint/config-conventional@19
+
+      - name: Valider les commits de la Pull Request
+        run: >-
+          npx commitlint
+          --from ${{ github.event.pull_request.base.sha }}
+          --to ${{ github.event.pull_request.head.sha }}
+          --verbose
+
+      - name: Valider le titre de la Pull Request
+        # Le titre devient le message du commit de merge en mode « squash » :
+        # il doit respecter la même convention que les commits eux-mêmes.
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: printf '%s' "$PR_TITLE" | npx commitlint --verbose

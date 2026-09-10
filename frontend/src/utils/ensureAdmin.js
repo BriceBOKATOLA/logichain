@@ -13,7 +13,7 @@ export default async function ensureAdmin() {
     // Try to login first (will store tokens via authService)
     await authService.login(admin.email, admin.password);
     return true;
-  } catch (err) {
+  } catch {
     try {
       // If login failed, attempt to register the admin
       await apiClient.post('/auth/register', admin);

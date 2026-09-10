@@ -5,9 +5,10 @@ import { API_BASE_URL } from '../config/env';
 // ping to the backend `/health` endpoint to detect connectivity changes in React Native.
 let NativeNetInfo = null;
 try {
-  // eslint-disable-next-line global-require
   NativeNetInfo = require('@react-native-community/netinfo');
-} catch (e) {
+} catch {
+  // Le paquet natif n'est pas installé : on bascule sur l'implémentation
+  // de repli définie plus bas.
   NativeNetInfo = null;
 }
 
@@ -20,16 +21,13 @@ if (NativeNetInfo && NativeNetInfo.addEventListener) {
 
   async function httpPing() {
     // Try backend health endpoint first; fall back to a lightweight public URL.
-    const urls = [
-      `${API_BASE_URL.replace(/\/api\/v1$/, '')}/health`,
-      'https://www.google.com/generate_204',
-    ];
+    const urls = [`${API_BASE_URL.replace(/\/api\/v1$/, '')}/health`, 'https://www.google.com/generate_204'];
     for (const url of urls) {
       try {
         const res = await fetch(url, { method: 'GET', cache: 'no-store' });
         if (res && (res.status === 200 || res.status === 204)) return { isConnected: true };
-      } catch (e) {
-        // try next
+      } catch {
+        // URL injoignable : on tente la suivante.
       }
     }
     return { isConnected: false };
@@ -37,13 +35,23 @@ if (NativeNetInfo && NativeNetInfo.addEventListener) {
 
   async function startPolling() {
     if (pollInterval) return;
-    current = typeof navigator !== 'undefined' && 'onLine' in navigator ? { isConnected: !!navigator.onLine } : await httpPing();
+    current =
+      typeof navigator !== 'undefined' && 'onLine' in navigator
+        ? { isConnected: !!navigator.onLine }
+        : await httpPing();
     pollInterval = setInterval(async () => {
-      const next = typeof navigator !== 'undefined' && 'onLine' in navigator ? { isConnected: !!navigator.onLine } : await httpPing();
+      const next =
+        typeof navigator !== 'undefined' && 'onLine' in navigator
+          ? { isConnected: !!navigator.onLine }
+          : await httpPing();
       if (next.isConnected !== current.isConnected) {
         current = next;
         listeners.forEach((h) => {
-          try { h(current); } catch (_e) { }
+          try {
+            h(current);
+          } catch {
+            // Un abonné qui lève ne doit pas empêcher les autres d'être notifiés.
+          }
         });
       }
     }, 3000);
@@ -60,9 +68,16 @@ if (NativeNetInfo && NativeNetInfo.addEventListener) {
     addEventListener(handler) {
       listeners.add(handler);
       (async () => {
-        const s = typeof navigator !== 'undefined' && 'onLine' in navigator ? { isConnected: !!navigator.onLine } : await httpPing();
+        const s =
+          typeof navigator !== 'undefined' && 'onLine' in navigator
+            ? { isConnected: !!navigator.onLine }
+            : await httpPing();
         current = s;
-        try { handler(s); } catch (_e) { }
+        try {
+          handler(s);
+        } catch {
+          // Idem : l'erreur d'un abonné ne doit pas casser l'abonnement.
+        }
       })();
       startPolling();
       return () => {
@@ -71,7 +86,9 @@ if (NativeNetInfo && NativeNetInfo.addEventListener) {
       };
     },
     async fetch() {
-      return typeof navigator !== 'undefined' && 'onLine' in navigator ? { isConnected: !!navigator.onLine } : await httpPing();
+      return typeof navigator !== 'undefined' && 'onLine' in navigator
+        ? { isConnected: !!navigator.onLine }
+        : await httpPing();
     },
   };
 }
