@@ -1,12 +1,17 @@
 ---
 # Collections Ansible requises par les rôles LogiChain.
 # Installation : ansible-galaxy collection install -r requirements.yml
+#
+# Les bornes HAUTES sont volontaires. Sans elles, `ansible-galaxy` installe la
+# dernière version publiée, qui peut exiger un ansible-core plus récent que
+# celui du poste ou du runner — et le playbook échoue alors avec un message
+# obscur. Ces plages sont compatibles avec ansible-core 2.16 à 2.18.
 collections:
   - name: community.general
-    version: ">=9.0.0"
+    version: ">=8.0.0,<11.0.0"
   - name: community.mongodb
-    version: ">=1.6.0"
+    version: ">=1.6.0,<2.0.0"
   - name: ansible.posix
-    version: ">=1.5.0"
+    version: ">=1.5.0,<2.0.0"
   - name: community.crypto
-    version: ">=2.15.0"
+    version: ">=2.15.0,<3.0.0"
