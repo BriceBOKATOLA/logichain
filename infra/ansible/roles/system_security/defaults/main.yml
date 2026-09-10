@@ -30,3 +30,8 @@ fail2ban_findtime: 600
 fail2ban_maxretry: 5
 unattended_upgrades_enabled: true
 timezone: Europe/Paris
+
+# Taille du swapfile de secours (voir tasks/main.yml, section « Swap »).
+# 2 Go convient à un pic de build Metro sur un VPS 4 Go de RAM sans en
+# sacrifier une part disproportionnée à demeure.
+swap_size_gb: 2

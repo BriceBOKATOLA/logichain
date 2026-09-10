@@ -8,7 +8,12 @@ Traçabilité du matériel événementiel en temps réel : scan de QR codes,
 fonctionnement hors-ligne pour les agents de terrain, tableau de bord logistique
 et calcul d'empreinte carbone.
 
-**Production** : <https://logichain.online> — [API](https://logichain.online/api-docs) · [Santé](https://logichain.online/health)
+**Production** : <https://logichain.online> (application web) — [API](https://logichain.online/api-docs) · [Santé](https://logichain.online/health)
+
+Le même code source React Native tourne en application mobile (Android/iOS)
+**et** en application web sur ce domaine — voir
+[frontend/README.md § Version web](frontend/README.md#version-web) pour les
+routes et les différences de plateforme (carte, stockage local).
 
 ---
 
@@ -154,7 +159,7 @@ système, MongoDB, Nginx, Node.js, l'application et les sauvegardes.
 | `system_security` | Mises à jour, utilisateur non-root, UFW (deny par défaut), SSH durci, Fail2Ban    |
 | `database`        | MongoDB 7 en replica set, authentification + keyFile, écoute locale, index        |
 | `web_proxy`       | Nginx, TLS Let's Encrypt, WebSocket, rate-limit, en-têtes de sécurité             |
-| `app_runtime`     | Node.js 20, releases atomiques, `npm ci --production`, PM2 cluster, rechargement sans coupure |
+| `app_runtime`     | Node.js 20, releases atomiques, `npm ci --production`, PM2 cluster, rechargement sans coupure, **build du bundle web** (`npm run build:web`) |
 | `backup`          | `mongodump` quotidien avec contrôle d'intégrité, rotation, script de restauration |
 
 **Idempotence** : uniquement des modules natifs Ansible. Les trois seules
