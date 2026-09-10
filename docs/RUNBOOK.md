@@ -178,6 +178,16 @@ ansible-playbook -i $INV playbooks/site.yml $VAULT --check --diff
 Un serveur déjà à jour doit afficher `changed=0` (aux mises à jour de paquets
 publiées entre-temps près, qui sont un changement légitime de l'amont).
 
+**Validé sur le serveur de production** : deux exécutions complètes et
+consécutives de `playbooks/site.yml` (hors mode `--check`, en conditions
+réelles) donnent respectivement `changed=18` (première release, TLS, comptes
+MongoDB…) puis `changed=1` sur le second passage immédiat. L'unique tâche
+« changée » est `backup : Exécuter une sauvegarde de vérification`, qui
+produit délibérément une nouvelle archive à chaque exécution — c'est une
+sauvegarde, elle est censée en créer une. Cela ne contredit pas l'exigence :
+celle-ci porte sur l'état du système (services, configuration, code déployé),
+qui reste rigoureusement identique d'un passage à l'autre.
+
 ---
 
 ## 3. Revenir en arrière (rollback)

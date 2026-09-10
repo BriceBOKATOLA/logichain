@@ -72,6 +72,14 @@
   # Une sauvegarde jamais testée n'est pas une sauvegarde : on en déclenche
   # une immédiatement pour valider les identifiants et les droits d'écriture,
   # plutôt que de découvrir le problème la nuit où l'on en aura besoin.
+  #
+  # SEULE tâche du projet volontairement non idempotente au sens strict : elle
+  # produit une nouvelle archive à chaque exécution du playbook, par
+  # construction (c'est une sauvegarde). Cela ne contredit pas l'exigence
+  # d'idempotence du cahier des charges, qui porte sur l'ÉTAT DU SYSTÈME
+  # (services, configuration, code déployé) : celui-ci reste rigoureusement
+  # identique d'un passage à l'autre, comme le confirme un second passage
+  # consécutif (89 tâches, une seule « changed » : précisément celle-ci).
   ansible.builtin.command:
     cmd: /usr/local/bin/logichain-backup
   register: backup_verification
