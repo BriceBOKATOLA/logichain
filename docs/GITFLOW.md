@@ -262,7 +262,7 @@ Une PR ne peut être fusionnée que si **toutes** ces conditions sont réunies :
 | Réglage                                                | Valeur                                                               |
 | ------------------------------------------------------ | -------------------------------------------------------------------- |
 | Require a pull request before merging                   | ✅                                                                    |
-| ├─ Require approvals                                    | **1** minimum                                                        |
+| ├─ Require approvals                                    | **1** minimum sur une équipe réelle — **0** en l'état actuel (voir note ci-dessous) |
 | ├─ Dismiss stale approvals when new commits are pushed  | ✅ (une approbation porte sur un contenu précis, pas sur une branche) |
 | └─ Require review from Code Owners                      | ✅                                                                    |
 | Require status checks to pass before merging            | ✅                                                                    |
@@ -282,6 +282,27 @@ Mêmes réglages, à deux exceptions près :
   l'intégration quotidienne ;
 - « Require branches to be up to date » peut être désactivé si l'équipe
   fusionne beaucoup, pour éviter les rebases en chaîne.
+
+### Contrainte de plateforme : « Require approvals » sur un dépôt à un seul mainteneur
+
+GitHub **interdit structurellement** à l'auteur d'une Pull Request d'approuver
+sa propre PR — ce n'est pas un réglage désactivable, c'est un comportement de
+la plateforme, valable même pour le propriétaire du dépôt. Avec « Require
+approvals: 1 » et « Do not allow bypassing the above settings » actifs sur un
+dépôt à un seul contributeur, **aucune Pull Request ne peut plus être
+fusionnée**, PR de merge automatique en Gitflow comprise.
+
+C'est exactement ce qui a été observé en pratique : la PR #18 corrigeant
+`cd-deploy.yml` (tous les 14 checks au vert) est restée bloquée avec le
+message *« Pull request authors can't approve their own pull requests »*.
+
+**Réglage retenu tant que le projet reste à un seul mainteneur** : « Require
+approvals » désactivé sur `main` et `develop`, tout le reste de la protection
+inchangé — la PR et les 6 checks obligatoires restent des passages forcés,
+seule l'exigence d'une seconde personne humaine est levée, faute d'en exister
+une. **Dès qu'un deuxième contributeur rejoint le projet**, réactiver « Require
+approvals: 1 » redonne immédiatement sa pleine valeur à la revue de code
+obligatoire, sans aucun autre changement de configuration.
 
 ### Vérification
 
