@@ -50,10 +50,23 @@
       - mongodb-database-tools # fournit mongodump / mongorestore (cf. rôle backup)
     state: present
 
-- name: Installer le pilote Python requis par les modules Ansible MongoDB
+- name: Retirer le paquet système pymongo, trop ancien
+  # Ubuntu 22.04 fournit python3-pymongo en version 3.x, alors que les modules
+  # community.mongodb exigent pymongo 4+. Le laisser installé le ferait
+  # éventuellement primer sur la version pip et rejouerait l'erreur
+  # « You must use pymongo 4+ » de façon intermittente.
   ansible.builtin.apt:
     name: python3-pymongo
+    state: absent
+
+- name: Installer le pilote Python MongoDB requis par les modules Ansible
+  ansible.builtin.pip:
+    name: "pymongo>=4.6,<5.0"
     state: present
+    # Depuis Ubuntu 23.04 (PEP 668), pip refuse d'écrire dans l'environnement
+    # Python du système sans ce drapeau — qui, à l'inverse, n'existe pas sur
+    # les versions de pip antérieures. On l'ajoute donc conditionnellement.
+    extra_args: "{{ '--break-system-packages' if ansible_facts['distribution_version'] is version('23.04', '>=') else '' }}"
 
 # --- Authentification interne du replica set --------------------------------
 
