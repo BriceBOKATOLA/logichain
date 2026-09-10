@@ -40,20 +40,56 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # --- Vérification préalable de la configuration ---------------------------
+  # Tant que les secrets de déploiement ne sont pas renseignés dans les
+  # paramètres du dépôt, le déploiement est IGNORÉ plutôt qu'échoué : un
+  # pipeline rouge à chaque push, pour une cause qui n'est pas un défaut de
+  # code, finit par être ignoré — y compris le jour où il signale un vrai
+  # problème.
+  preflight:
+    name: Vérifier la configuration de déploiement
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - name: Contrôler la présence des secrets requis
+        id: check
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          MISSING=""
+          [ -z "$SSH_KEY" ]        && MISSING="$MISSING DEPLOY_SSH_KEY"
+          [ -z "$VAULT_PASSWORD" ] && MISSING="$MISSING ANSIBLE_VAULT_PASSWORD"
+          [ -z "$KNOWN_HOSTS" ]    && MISSING="$MISSING DEPLOY_KNOWN_HOSTS"
+
+          if [ -n "$MISSING" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Déploiement ignoré::Secrets manquants :$MISSING — voir docs/SECURITY.md §5 (Settings > Secrets and variables > Actions)."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "Tous les secrets de déploiement sont présents."
+          fi
+
   # --- Barrière qualité ----------------------------------------------------
   # Le déploiement ne part QUE si la CI est verte. Sans cette dépendance, un
   # push direct sur main pourrait mettre en production du code non testé.
   quality-gate:
     name: Barrière qualité
-    if: github.event_name == 'push'
+    needs: [preflight]
+    if: needs.preflight.outputs.configured == 'true' && github.event_name == 'push'
     uses: ./.github/workflows/ci-backend.yml
 
   deploy:
     name: Déployer
-    needs: [quality-gate]
-    # `always()` + test explicite : le job doit aussi pouvoir tourner via
+    needs: [preflight, quality-gate]
+    # `always()` + tests explicites : le job doit aussi pouvoir tourner via
     # workflow_dispatch, cas où `quality-gate` est ignoré (et non « réussi »).
-    if: always() && (needs.quality-gate.result == 'success' || github.event_name == 'workflow_dispatch')
+    if: >-
+      always()
+      && needs.preflight.outputs.configured == 'true'
+      && (needs.quality-gate.result == 'success' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
 
     environment:
@@ -74,9 +110,14 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Installer Ansible
+        # Version ÉPINGLÉE, et cohérente avec les bornes de requirements.yml.
+        # Un déploiement doit s'exécuter avec exactement la même version
+        # d'Ansible que celle validée en recette : laisser pip choisir la
+        # dernière ferait varier l'outil de déploiement sans qu'aucun commit
+        # ne le décide.
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install "ansible-core>=2.16" passlib
+          python3 -m pip install "ansible-core~=2.18.0" passlib
           ansible --version
 
       - name: Installer les collections Ansible
@@ -145,7 +186,7 @@ jobs:
   smoke-test:
     name: Test de fumée
     needs: [deploy]
-    if: success()
+    if: needs.deploy.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Interroger la sonde de santé publique

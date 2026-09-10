@@ -1,0 +1,39 @@
+---
+# Configuration ansible-lint du projet LogiChain.
+# Analyse locale et en CI : ansible-lint playbooks/ roles/
+
+# Profil le plus exigeant. On ne descend pas d'un cran pour faire passer le
+# pipeline : chaque règle écartée l'est nommément, avec sa justification.
+profile: production
+
+exclude_paths:
+  - collections/
+  - .github/
+  - inventories/production/group_vars/vault.yml
+
+skip_list:
+  # ---------------------------------------------------------------------------
+  # var-naming[no-role-prefix]
+  #
+  # Cette règle impose de préfixer chaque variable d'un rôle par le nom du rôle
+  # (`web_proxy_app_port`, `app_runtime_app_port`, …). C'est la bonne pratique
+  # pour un rôle PUBLIÉ sur Ansible Galaxy, destiné à cohabiter avec des rôles
+  # tiers dont on ignore les noms de variables.
+  #
+  # Nos rôles sont internes et volontairement couplés autour d'un vocabulaire
+  # commun : `app_port` doit désigner LE MÊME port pour `app_runtime` (qui fait
+  # écouter Node.js dessus) et pour `web_proxy` (qui y envoie le trafic).
+  # Préfixer forcerait à déclarer deux variables distinctes pour une seule
+  # réalité, et une divergence entre les deux produirait un 502 silencieux.
+  #
+  # Le partage est donc un choix d'architecture, pas un oubli de nommage.
+  # ---------------------------------------------------------------------------
+  - var-naming[no-role-prefix]
+
+# Les règles ci-dessous restent ACTIVES et bloquantes — ce sont celles qui
+# portent réellement les exigences du cahier des charges :
+#   - no-changed-when     : une commande doit déclarer son idempotence
+#   - command-instead-of-module : privilégier les modules natifs
+#   - risky-file-permissions    : permissions explicites sur les fichiers
+#   - partial-become            : `become_user` toujours accompagné de `become`
+#   - no-handler / no-free-form / jinja / yaml
