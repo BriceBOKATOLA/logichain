@@ -6,6 +6,7 @@ import SyncStatusBadge from '../components/SyncStatusBadge';
 import AlertBanner from '../components/AlertBanner';
 import { useEventContext } from '../context/EventContext';
 import { useDashboard } from '../hooks/useDashboard';
+import { useAgentZone } from '../hooks/useAgentZone';
 
 /**
  * DashboardScreen — Vue PURE : uniquement rendu et capture d'événements utilisateur
@@ -14,6 +15,7 @@ import { useDashboard } from '../hooks/useDashboard';
 export default function DashboardScreen({ navigation }) {
   const { eventId } = useEventContext();
   const { kpi, alert, refreshing, refresh } = useDashboard(eventId);
+  const { zone } = useAgentZone(eventId);
 
   return (
     <ScrollView
@@ -32,6 +34,13 @@ export default function DashboardScreen({ navigation }) {
           <SyncStatusBadge />
         </View>
       </View>
+
+      {zone && (
+        <View style={styles.zoneRow}>
+          <Icon name="map-pin" size={14} color={colors.textSecondary} />
+          <Text style={styles.zoneText}>Secteur assigné : {zone.name}</Text>
+        </View>
+      )}
 
       <AlertBanner message={alert} visible={!!alert} />
 
@@ -57,6 +66,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  zoneRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.md },
+  zoneText: { ...typography.caption, color: colors.textSecondary },
   mapButton: {
     width: 32,
     height: 32,

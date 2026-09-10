@@ -18,6 +18,16 @@
       "backgroundColor": "#0F1712",
       "themeColor": "#0F1712"
     },
-    "plugins": ["expo-sqlite"]
+    "plugins": [
+      "expo-sqlite",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "LogiChain utilise votre position pour vous localiser sur le site et déterminer automatiquement votre secteur assigné, y compris lorsque l'application est en arrière-plan.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ]
+    ]
   }
 }
