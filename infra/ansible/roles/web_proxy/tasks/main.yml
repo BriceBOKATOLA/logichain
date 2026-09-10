@@ -52,6 +52,16 @@
   ansible.builtin.set_fact:
     tls_enabled: "{{ (app_domain | length > 0) and (tls_certificate.stat.exists | default(false)) }}"
     tls_requested: "{{ (app_domain | length > 0) and (letsencrypt_email | length > 0) }}"
+    # Copie IMMUABLE de l'état constaté au début du rôle, dédiée à la condition
+    # d'entrée du bloc ci-dessous. `tls_enabled`, lui, est modifié PAR une
+    # tâche à l'intérieur de ce même bloc une fois le certificat obtenu — or
+    # Ansible réévalue le `when` d'un bloc à CHAQUE tâche qu'il contient, pas
+    # une seule fois à l'entrée. Faire dépendre la condition du bloc d'une
+    # variable que le bloc modifie lui-même la fait devenir fausse en cours de
+    # route, et les tâches suivantes du bloc sont alors sautées en silence —
+    # exactement ce qui s'est produit ici (le certificat était obtenu, mais le
+    # vhost n'était jamais rebasculé en HTTPS).
+    cert_missing_at_start: "{{ not (tls_certificate.stat.exists | default(false)) }}"
 
 - name: Déployer le vhost de l'API
   ansible.builtin.template:
@@ -91,7 +101,9 @@
 # --- Étape 2 : certificat Let's Encrypt -------------------------------------
 
 - name: Obtenir et installer le certificat TLS
-  when: tls_requested and not tls_enabled
+  # Condition basée sur `cert_missing_at_start`, jamais réassignée : voir la
+  # note ci-dessus sur la réévaluation du `when` de bloc à chaque tâche.
+  when: tls_requested and cert_missing_at_start
   block:
     - name: Installer Certbot
       ansible.builtin.apt:
