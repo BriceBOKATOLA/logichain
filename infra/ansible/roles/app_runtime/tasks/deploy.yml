@@ -1,84 +1,139 @@
 ---
+# --- Décider s'il y a quelque chose à déployer ------------------------------
+#
+# Sans ce contrôle, chaque exécution du playbook créerait une release, y
+# réinstallerait les dépendances et basculerait le lien symbolique — même si le
+# serveur exécute déjà exactement la bonne révision. Le playbook ne serait alors
+# pas idempotent au sens du §5 du cahier des charges, et une simple vérification
+# de configuration provoquerait un redémarrage applicatif inutile en pleine
+# exploitation.
+
+- name: Résoudre la révision cible sur le dépôt distant
+  # `git ls-remote` traduit une branche ou une étiquette en SHA. Si
+  # `app_repo_version` est déjà un SHA complet (cas du pipeline CD), la commande
+  # ne renvoie rien et on conserve la valeur telle quelle.
+  ansible.builtin.command:
+    cmd: "git ls-remote {{ app_repo_url }} {{ app_repo_version }}"
+  register: remote_ref
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Déterminer le SHA cible
+  ansible.builtin.set_fact:
+    target_revision: "{{ (remote_ref.stdout.split()[0]) if (remote_ref.stdout | length > 0) else app_repo_version }}"
+
+- name: Relever la révision actuellement déployée
+  ansible.builtin.command:
+    cmd: "git -C {{ app_current_dir }} rev-parse HEAD"
+  register: current_revision
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Décider si une nouvelle release est nécessaire
+  ansible.builtin.set_fact:
+    # `force_release=true` permet de forcer une reconstruction (dépendance
+    # corrompue, node_modules incohérent) sans changer de révision.
+    deployment_needed: >-
+      {{ (current_revision.rc | default(1)) != 0
+         or (current_revision.stdout | default('') | trim) != target_revision
+         or (force_release | default(false) | bool) }}
+
+- name: Annoncer la décision de déploiement
+  ansible.builtin.debug:
+    msg: >-
+      {{ 'Nouvelle release à déployer : ' ~ target_revision[:12]
+         if deployment_needed
+         else 'Aucun déploiement nécessaire — la révision ' ~ target_revision[:12] ~ ' est déjà en service.' }}
+
 # --- Déploiement d'une nouvelle release ------------------------------------
 
-- name: Définir le chemin de la nouvelle release
-  ansible.builtin.set_fact:
-    release_timestamp: "{{ ansible_date_time.iso8601_basic_short }}"
-    release_path: "{{ app_releases_dir }}/{{ ansible_date_time.iso8601_basic_short }}"
+- name: Déployer la nouvelle release
+  when: deployment_needed
+  block:
+    - name: Définir le chemin de la nouvelle release
+      ansible.builtin.set_fact:
+        release_timestamp: "{{ ansible_date_time.iso8601_basic_short }}"
+        release_path: "{{ app_releases_dir }}/{{ ansible_date_time.iso8601_basic_short }}"
 
-- name: Récupérer le code source depuis le dépôt Git
-  ansible.builtin.git:
-    repo: "{{ app_repo_url }}"
-    dest: "{{ release_path }}"
-    version: "{{ app_repo_version }}"
-    depth: 1
-    # Le répertoire d'une release est immuable : toute modification manuelle
-    # sur le serveur doit être écrasée, jamais fusionnée.
-    force: true
-  become: true
-  become_user: "{{ app_user }}"
-  register: git_checkout
+    - name: Récupérer le code source depuis le dépôt Git
+      ansible.builtin.git:
+        repo: "{{ app_repo_url }}"
+        dest: "{{ release_path }}"
+        version: "{{ target_revision }}"
+        depth: 1
+        # Le répertoire d'une release est immuable : toute modification manuelle
+        # sur le serveur doit être écrasée, jamais fusionnée.
+        force: true
+      become: true
+      become_user: "{{ app_user }}"
+      register: git_checkout
 
-- name: Relever la révision réellement déployée
-  ansible.builtin.set_fact:
-    deployed_revision: "{{ git_checkout.after | default('inconnue') }}"
+    - name: Relever la révision réellement déployée
+      ansible.builtin.set_fact:
+        deployed_revision: "{{ git_checkout.after | default(target_revision) }}"
 
-- name: Lier le fichier d'environnement partagé dans la release
-  # Un lien symbolique plutôt qu'une copie : le jour où l'on fait tourner un
-  # rollback, la release restaurée pointe automatiquement sur les secrets
-  # courants sans qu'il faille les redéployer.
-  ansible.builtin.file:
-    src: "{{ app_shared_dir }}/.env"
-    dest: "{{ release_path }}/{{ app_backend_subdir }}/.env"
-    state: link
-    owner: "{{ app_user }}"
-    group: "{{ app_group }}"
-  become: true
-  become_user: "{{ app_user }}"
+    - name: Lier le fichier d'environnement partagé dans la release
+      # Un lien symbolique plutôt qu'une copie : le jour où l'on fait un
+      # rollback, la release restaurée pointe automatiquement sur les secrets
+      # courants sans qu'il faille les redéployer.
+      ansible.builtin.file:
+        src: "{{ app_shared_dir }}/.env"
+        dest: "{{ release_path }}/{{ app_backend_subdir }}/.env"
+        state: link
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+      become: true
+      become_user: "{{ app_user }}"
 
-- name: Installer les dépendances de production
-  # `npm ci` (et non `npm install`) : installation reproductible à l'identique
-  # depuis package-lock.json, sans jamais résoudre de nouvelle version. C'est
-  # la traduction concrète de l'exigence de reproductibilité intégrale.
-  community.general.npm:
-    path: "{{ release_path }}/{{ app_backend_subdir }}"
-    ci: true
-    production: true
-    state: present
-  become: true
-  become_user: "{{ app_user }}"
+    - name: Installer les dépendances de production
+      # `npm ci` (et non `npm install`) : installation reproductible à
+      # l'identique depuis package-lock.json, sans jamais résoudre de nouvelle
+      # version. C'est la traduction concrète de l'exigence de reproductibilité.
+      # `--omit=dev` écarte l'outillage de test et de lint, inutile — et donc
+      # indésirable — sur un serveur de production.
+      # La garde `creates:` rend la commande idempotente : elle ne s'exécute que
+      # pour une release dont les dépendances ne sont pas encore installées.
+      ansible.builtin.command:
+        cmd: npm ci --omit=dev --no-audit --no-fund
+        chdir: "{{ release_path }}/{{ app_backend_subdir }}"
+        creates: "{{ release_path }}/{{ app_backend_subdir }}/node_modules"
+      become: true
+      become_user: "{{ app_user }}"
 
-- name: Générer le fichier de configuration PM2
-  ansible.builtin.template:
-    src: ecosystem.config.js.j2
-    dest: "{{ release_path }}/{{ app_backend_subdir }}/ecosystem.config.js"
-    owner: "{{ app_user }}"
-    group: "{{ app_group }}"
-    mode: "0644"
+    - name: Générer le fichier de configuration PM2
+      ansible.builtin.template:
+        src: ecosystem.config.js.j2
+        dest: "{{ release_path }}/{{ app_backend_subdir }}/ecosystem.config.js"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: "0644"
 
-- name: Synchroniser les index MongoDB
-  # Idempotent (`syncIndexes`) et exécuté avant la bascule : si l'indexation
-  # échoue, l'ancienne release reste en service.
-  ansible.builtin.command:
-    cmd: node scripts/ensure-indexes.js
-    chdir: "{{ release_path }}/{{ app_backend_subdir }}"
-  become: true
-  become_user: "{{ app_user }}"
-  register: ensure_indexes
-  changed_when: false
+    - name: Synchroniser les index MongoDB
+      # Idempotent (`syncIndexes`) et exécuté AVANT la bascule : si l'indexation
+      # échoue, l'ancienne release reste en service.
+      ansible.builtin.command:
+        cmd: node scripts/ensure-indexes.js
+        chdir: "{{ release_path }}/{{ app_backend_subdir }}"
+      become: true
+      become_user: "{{ app_user }}"
+      changed_when: false
 
-- name: Basculer le lien « current » sur la nouvelle release
-  # Bascule atomique : `ln -sfn` via le module file remplace le lien en une
-  # seule opération, sans instant où `current` pointerait dans le vide.
-  ansible.builtin.file:
-    src: "{{ release_path }}"
-    dest: "{{ app_current_dir }}"
-    state: link
-    owner: "{{ app_user }}"
-    group: "{{ app_group }}"
-  become: true
-  become_user: "{{ app_user }}"
-  notify: reload api
+    - name: Basculer le lien « current » sur la nouvelle release
+      # Bascule atomique : le module `file` remplace le lien en une seule
+      # opération, sans instant où `current` pointerait dans le vide.
+      ansible.builtin.file:
+        src: "{{ release_path }}"
+        dest: "{{ app_current_dir }}"
+        state: link
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+      become: true
+      become_user: "{{ app_user }}"
+      notify: reload api
+
+# --- Purge des anciennes releases ------------------------------------------
 
 - name: Lister les releases présentes
   ansible.builtin.find:
@@ -97,7 +152,7 @@
 
 - name: Purger les releases les plus anciennes
   # On conserve {{ app_keep_releases }} releases : assez pour revenir en
-  # arrière plusieurs fois, pas assez pour saturer les 49 Go du VPS.
+  # arrière plusieurs fois, pas assez pour saturer le disque du VPS.
   ansible.builtin.file:
     path: "{{ item }}"
     state: absent

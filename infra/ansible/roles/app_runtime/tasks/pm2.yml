@@ -88,6 +88,6 @@
 - name: Afficher le résultat du déploiement
   ansible.builtin.debug:
     msg:
-      - "Release déployée : {{ release_timestamp | default('inchangée') }}"
-      - "Révision Git     : {{ deployed_revision | default('inconnue') }}"
+      - "Release          : {{ release_timestamp | default('inchangée (révision déjà en service)') }}"
+      - "Révision Git     : {{ (deployed_revision | default(target_revision))[:12] }}"
       - "Santé de l'API   : {{ health_check.json.status }} (base {{ health_check.json.database }})"

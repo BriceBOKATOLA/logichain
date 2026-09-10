@@ -1,6 +1,6 @@
 # {{ ansible_managed }}
 # Reverse proxy de l'API LogiChain.
-{% set server_name = app_domain if app_domain | length > 0 else '_' %}
+{% set server_name = ([app_domain] + app_domain_aliases) | join(' ') if app_domain | length > 0 else '_' %}
 
 {% if tls_enabled %}
 # --- Redirection HTTP -> HTTPS ---------------------------------------------

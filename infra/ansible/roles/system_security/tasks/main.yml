@@ -121,7 +121,14 @@
 - name: Durcir la configuration du serveur SSH
   ansible.builtin.template:
     src: sshd_hardening.conf.j2
-    dest: /etc/ssh/sshd_config.d/99-logichain-hardening.conf
+    # Le préfixe « 00- » est CRITIQUE. Les fichiers de /etc/ssh/sshd_config.d/
+    # sont lus dans l'ordre lexical, et SSH retient la PREMIÈRE valeur
+    # rencontrée pour chaque directive. Les images Ubuntu de VPS déposent un
+    # `50-cloud-init.conf` contenant `PasswordAuthentication yes` : avec un
+    # préfixe « 99- », notre durcissement était lu APRÈS et purement ignoré —
+    # le serveur restait ouvert aux attaques par force brute alors que le
+    # playbook rapportait un succès.
+    dest: /etc/ssh/sshd_config.d/00-logichain-hardening.conf
     owner: root
     group: root
     mode: "0644"
@@ -130,6 +137,64 @@
     validate: /usr/sbin/sshd -t -f %s
   when: ssh_hardening_safe
   notify: reload sshd
+
+- name: Supprimer l'ancien fichier de durcissement mal ordonné
+  # Migration : les serveurs provisionnés avant la correction ci-dessus
+  # portent encore le fichier « 99- ». Le laisser en place n'aurait pas d'effet
+  # néfaste, mais entretiendrait une configuration en double difficile à relire.
+  ansible.builtin.file:
+    path: /etc/ssh/sshd_config.d/99-logichain-hardening.conf
+    state: absent
+  notify: reload sshd
+
+- name: Rechercher un fichier de configuration SSH déposé par cloud-init
+  ansible.builtin.stat:
+    path: /etc/ssh/sshd_config.d/50-cloud-init.conf
+  register: cloud_init_sshd
+
+- name: Neutraliser les réglages SSH permissifs déposés par cloud-init
+  # Ceinture et bretelles : même si l'ordre lexical nous donne la priorité, on
+  # retire explicitement la directive permissive de l'image du fournisseur,
+  # pour qu'une relecture manuelle de la configuration ne laisse aucun doute.
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config.d/50-cloud-init.conf
+    regexp: '^\s*PasswordAuthentication\s+'
+    line: "PasswordAuthentication no"
+    state: present
+    validate: /usr/sbin/sshd -t -f %s
+  when:
+    - ssh_hardening_safe
+    - cloud_init_sshd.stat.exists
+  notify: reload sshd
+
+- name: Appliquer immédiatement la configuration SSH
+  ansible.builtin.meta: flush_handlers
+
+- name: Relire la configuration SSH effectivement appliquée
+  # `sshd -T` affiche la configuration RÉSOLUE, tous fichiers inclus confondus.
+  # C'est la seule lecture qui dise la vérité : le contenu de notre template ne
+  # prouve rien tant qu'un autre fichier peut le précéder.
+  ansible.builtin.command:
+    cmd: /usr/sbin/sshd -T
+  register: sshd_effective_config
+  changed_when: false
+  check_mode: false
+
+- name: Vérifier que le durcissement SSH est réellement en vigueur
+  ansible.builtin.assert:
+    that:
+      - "'permitrootlogin no' in sshd_effective_config.stdout"
+      - "'passwordauthentication no' in sshd_effective_config.stdout"
+      - "'allowusers ' ~ app_user in sshd_effective_config.stdout"
+    fail_msg: >-
+      Le durcissement SSH n'est PAS appliqué. Configuration résolue :
+      {{ sshd_effective_config.stdout_lines
+         | select('match', '^(permitrootlogin|passwordauthentication|allowusers)')
+         | list }}
+      Vérifiez l'ordre des fichiers de /etc/ssh/sshd_config.d/ (la première
+      valeur rencontrée l'emporte).
+    success_msg: "SSH durci : connexion root et mots de passe refusés, accès limité à « {{ app_user }} »."
+  when: ssh_hardening_safe
 
 # --- Pare-feu UFW -----------------------------------------------------------
 
