@@ -14,7 +14,9 @@ class MonitoringController {
     try {
       const kpi = await itemRepository.getStockKPI(req.params.eventId);
       return new ApiResponse(200, kpi).send(res);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   };
 
   /** GET /events/:eventId/monitoring/carbon — Empreinte carbone consolidée en temps réel. */
@@ -22,23 +24,35 @@ class MonitoringController {
     try {
       const footprint = await carbonService.computeConsolidatedFootprint(req.params.eventId);
       return new ApiResponse(200, footprint).send(res);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   };
 
   /** GET /events/:eventId/monitoring/carbon/history — Série temporelle (collection Time Series). */
   carbonHistory = async (req, res, next) => {
     try {
-      const history = await carbonService.getHistory(req.params.eventId, Number(req.query.sinceMinutes) || 120);
+      const history = await carbonService.getHistory(
+        req.params.eventId,
+        Number(req.query.sinceMinutes) || 120,
+      );
       return new ApiResponse(200, history).send(res);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   };
 
   /** GET /events/:eventId/monitoring/bottlenecks — Items bloqués au-delà d'un seuil (goulots d'étranglement). */
   bottlenecks = async (req, res, next) => {
     try {
-      const items = await itemRepository.detectBottlenecks(req.params.eventId, Number(req.query.thresholdMinutes) || 60);
+      const items = await itemRepository.detectBottlenecks(
+        req.params.eventId,
+        Number(req.query.thresholdMinutes) || 60,
+      );
       return new ApiResponse(200, items).send(res);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   };
 }
 

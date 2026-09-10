@@ -17,15 +17,23 @@ class ItemController {
       // pour éviter toute incohérence entre la ressource parente et la charge utile.
       const item = await itemService.createItem({ ...req.body, eventId: req.params.eventId });
       return new ApiResponse(201, item, 'Item créé.').send(res);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   };
 
   /** GET /events/:eventId/items — Liste paginée, avec filtre delta-sync optionnel (updatedSince). */
   list = async (req, res, next) => {
     try {
       const result = await itemService.list(req.params.eventId, req.query);
-      return new ApiResponse(200, result.items, 'OK', { total: result.total, page: result.page, pages: result.pages }).send(res);
-    } catch (err) { next(err); }
+      return new ApiResponse(200, result.items, 'OK', {
+        total: result.total,
+        page: result.page,
+        pages: result.pages,
+      }).send(res);
+    } catch (err) {
+      next(err);
+    }
   };
 
   /** GET /events/:eventId/items/qr/:qrCode — Résolution d'un item scanné par son QR code. */
@@ -33,7 +41,9 @@ class ItemController {
     try {
       const item = await itemService.findByQrCode(req.params.qrCode);
       return new ApiResponse(200, item).send(res);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   };
 
   /** GET /events/:eventId/items/:id — Récupération par identifiant Mongo. */
@@ -41,7 +51,9 @@ class ItemController {
     try {
       const item = await itemService.getById(req.params.id);
       return new ApiResponse(200, item).send(res);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   };
 
   /** PATCH /events/:eventId/items/:id/scan — Transition d'état après un scan terrain. */
@@ -53,7 +65,9 @@ class ItemController {
         ...req.body,
       });
       return new ApiResponse(200, updated, 'Transition appliquée.').send(res);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   };
 
   /** PATCH /events/:eventId/items/:id/anomaly — Déclaration d'anomalie géolocalisée. */
@@ -65,7 +79,9 @@ class ItemController {
         ...req.body,
       });
       return new ApiResponse(200, updated, 'Anomalie déclarée.').send(res);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   };
 
   /** PATCH /events/:eventId/items/:id — Édition administrative des métadonnées (pas de l'état). */
@@ -74,7 +90,9 @@ class ItemController {
       const { expectedVersion, ...patch } = req.body;
       const updated = await itemService.updateMetadata(req.params.id, expectedVersion, patch);
       return new ApiResponse(200, updated, 'Item mis à jour.').send(res);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   };
 
   /** DELETE /events/:eventId/items/:id — Suppression définitive (erreurs de saisie). */
@@ -82,7 +100,9 @@ class ItemController {
     try {
       await itemService.deleteItem(req.params.id);
       return new ApiResponse(200, null, 'Item supprimé.').send(res);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   };
 
   /** POST /events/:eventId/items/sync — Réconciliation d'un lot d'actions hors-ligne. */
@@ -90,7 +110,9 @@ class ItemController {
     try {
       const result = await syncService.processBatch(req.params.eventId, req.body.actions, req.user.sub);
       return new ApiResponse(200, result, 'Synchronisation traitée.').send(res);
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   };
 }
 

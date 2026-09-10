@@ -131,10 +131,7 @@ describe('POST /api/v1/auth/logout', () => {
   it('invalide la session : le refresh token précédent devient inutilisable', async () => {
     const { accessToken, refreshToken } = await registerAndLogin();
 
-    await request(app)
-      .post('/api/v1/auth/logout')
-      .set('Authorization', `Bearer ${accessToken}`)
-      .expect(200);
+    await request(app).post('/api/v1/auth/logout').set('Authorization', `Bearer ${accessToken}`).expect(200);
 
     const stored = await User.findOne({ email: NEW_USER.email });
     expect(stored.refreshTokenHash).toBeNull();

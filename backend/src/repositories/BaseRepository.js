@@ -58,11 +58,13 @@ class BaseRepository {
    * Si aucun document ne correspond, on lève un ApiError 409 (conflit).
    */
   async updateWithOptimisticLock(id, expectedVersion, update, session = null) {
-    const doc = await this.model.findOneAndUpdate(
-      { _id: id, version: expectedVersion },
-      { ...update, $inc: { version: 1 } },
-      { new: true, runValidators: true, session },
-    ).exec();
+    const doc = await this.model
+      .findOneAndUpdate(
+        { _id: id, version: expectedVersion },
+        { ...update, $inc: { version: 1 } },
+        { new: true, runValidators: true, session },
+      )
+      .exec();
 
     if (!doc) {
       const current = await this.model.findById(id).exec();

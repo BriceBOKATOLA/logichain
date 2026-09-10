@@ -10,8 +10,14 @@ const VALID_TRANSPORT_MODES = ['road', 'rail', 'electric_vehicle', 'foot'];
  */
 class ItemEntity extends BaseEntity {
   constructor({
-    label, qrCode, eventId, state = 'in_stock', location = null, version = 0,
-    carbonWeightKg = 0, transportMode = 'road',
+    label,
+    qrCode,
+    eventId,
+    state = 'in_stock',
+    location = null,
+    version = 0,
+    carbonWeightKg = 0,
+    transportMode = 'road',
   }) {
     super();
     this.label = label;
@@ -30,10 +36,19 @@ class ItemEntity extends BaseEntity {
     this.assert(!!this.qrCode, 'Le code QR/Barcode est obligatoire.');
     this.assert(!!this.eventId, "L'item doit être rattaché à un événement.");
     this.assert(VALID_STATES.includes(this.state), `État d'item invalide: ${this.state}`);
-    this.assert(VALID_TRANSPORT_MODES.includes(this.transportMode), `Mode de transport invalide: ${this.transportMode}`);
-    this.assert(typeof this.carbonWeightKg === 'number' && this.carbonWeightKg >= 0, 'Le poids carbone doit être un nombre positif.');
+    this.assert(
+      VALID_TRANSPORT_MODES.includes(this.transportMode),
+      `Mode de transport invalide: ${this.transportMode}`,
+    );
+    this.assert(
+      typeof this.carbonWeightKg === 'number' && this.carbonWeightKg >= 0,
+      'Le poids carbone doit être un nombre positif.',
+    );
     if (this.location) {
-      this.assert(this.location.type === 'Point' && Array.isArray(this.location.coordinates), 'La localisation doit être un Point GeoJSON.');
+      this.assert(
+        this.location.type === 'Point' && Array.isArray(this.location.coordinates),
+        'La localisation doit être un Point GeoJSON.',
+      );
     }
   }
 

@@ -35,7 +35,7 @@ async function bootstrap() {
     logger.info(`Signal ${signal} reçu — arrêt du serveur en cours...`);
 
     const forceExit = setTimeout(() => {
-      logger.error("Arrêt gracieux trop long, sortie forcée.");
+      logger.error('Arrêt gracieux trop long, sortie forcée.');
       process.exit(1);
     }, 10000);
     forceExit.unref();
@@ -55,7 +55,9 @@ async function bootstrap() {
 // Un rejet de promesse non capté laisserait le processus dans un état incohérent
 // sans que PM2 ne le redémarre : on le transforme en sortie explicite.
 process.on('unhandledRejection', (reason) => {
-  logger.error('Rejet de promesse non géré', { reason: reason instanceof Error ? reason.message : String(reason) });
+  logger.error('Rejet de promesse non géré', {
+    reason: reason instanceof Error ? reason.message : String(reason),
+  });
   process.exit(1);
 });
 

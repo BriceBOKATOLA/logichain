@@ -83,7 +83,9 @@ class RouteService {
 
     const hasValidatedStops = existing.stops.some((s) => !!s.validatedAt);
     if (hasValidatedStops) {
-      throw ApiError.conflict('Impossible de supprimer une feuille de route dont l\'exécution a déjà commencé.');
+      throw ApiError.conflict(
+        "Impossible de supprimer une feuille de route dont l'exécution a déjà commencé.",
+      );
     }
 
     await this.repository.deleteById(routeId);
