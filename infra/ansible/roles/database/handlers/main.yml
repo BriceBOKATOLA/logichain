@@ -1,0 +1,14 @@
+---
+- name: Redémarrer MongoDB
+  ansible.builtin.service:
+    name: mongod
+    state: restarted
+  listen: restart mongod
+
+- name: Attendre que MongoDB réponde
+  ansible.builtin.wait_for:
+    host: "{{ mongodb_bind_ip }}"
+    port: "{{ mongodb_port }}"
+    delay: 2
+    timeout: 60
+  listen: restart mongod

@@ -1,0 +1,36 @@
+# {{ ansible_managed }}
+# Fail2Ban — bannissement automatique des IP répétant des échecs d'authentification.
+
+[DEFAULT]
+bantime  = {{ fail2ban_bantime }}
+findtime = {{ fail2ban_findtime }}
+maxretry = {{ fail2ban_maxretry }}
+backend  = systemd
+
+# Ne jamais se bannir soi-même : sans cette ligne, une boucle de requêtes
+# locales (health-check, sonde de monitoring) pourrait couper l'accès.
+ignoreip = 127.0.0.1/8 ::1
+
+# UFW étant le pare-feu actif, Fail2Ban doit insérer ses règles via UFW.
+banaction = ufw
+
+[sshd]
+enabled  = true
+port     = {{ ssh_port }}
+filter   = sshd
+logpath  = %(sshd_log)s
+maxretry = {{ fail2ban_maxretry }}
+
+[nginx-http-auth]
+enabled  = true
+port     = http,https
+logpath  = /var/log/nginx/error.log
+
+# Protège l'API contre le balayage massif d'URL (scan de vulnérabilités),
+# complémentaire du rate-limit applicatif d'Express qui, lui, protège contre
+# l'abus d'un client légitime.
+[nginx-botsearch]
+enabled  = true
+port     = http,https
+logpath  = /var/log/nginx/access.log
+maxretry = 10

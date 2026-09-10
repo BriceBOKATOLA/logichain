@@ -1,0 +1,53 @@
+---
+# Variables de l'environnement de RECETTE. Volontairement identiques à la
+# production sauf sur les points où la recette doit rester plus légère et plus
+# permissive (déploiement de `develop`, une seule instance PM2, pas de HTTPS).
+env_name: staging
+
+app_name: logichain
+app_user: deploy
+app_group: deploy
+app_root: /opt/logichain
+app_current_dir: "{{ app_root }}/current"
+app_releases_dir: "{{ app_root }}/releases"
+app_shared_dir: "{{ app_root }}/shared"
+app_keep_releases: 3
+
+nodejs_major_version: 20
+app_port: 4000
+pm2_app_name: logichain-api
+pm2_instances: 1
+
+app_repo_url: https://github.com/BriceBOKATOLA/logichain.git
+# La recette suit `develop` : c'est là que les features fusionnées sont validées
+# avant d'être promues vers `main` (cf. docs/GITFLOW.md).
+app_repo_branch: develop
+
+app_domain: ""
+letsencrypt_email: ""
+nginx_client_max_body_size: 10m
+app_cors_origin: "http://{{ ansible_host }}"
+
+mongodb_version: "7.0"
+mongodb_port: 27017
+mongodb_bind_ip: 127.0.0.1
+mongodb_database: logichain
+mongodb_app_user: logichain_app
+mongodb_admin_user: logichain_admin
+mongodb_replica_set: rs0
+
+backup_dir: /var/backups/logichain
+backup_retention_days: 7
+backup_cron_hour: "4"
+backup_cron_minute: "0"
+
+ssh_port: 22
+deploy_authorized_keys: []
+ufw_allowed_ports:
+  - { port: "{{ ssh_port }}", proto: tcp, comment: "SSH" }
+  - { port: "80", proto: tcp, comment: "HTTP" }
+  - { port: "443", proto: tcp, comment: "HTTPS" }
+fail2ban_bantime: 1800
+fail2ban_findtime: 600
+fail2ban_maxretry: 5
+unattended_upgrades_enabled: false

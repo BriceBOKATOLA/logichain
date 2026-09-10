@@ -1,0 +1,24 @@
+---
+app_name: logichain
+app_user: deploy
+app_group: deploy
+app_root: /opt/logichain
+app_releases_dir: "{{ app_root }}/releases"
+app_shared_dir: "{{ app_root }}/shared"
+app_current_dir: "{{ app_root }}/current"
+app_keep_releases: 5
+
+nodejs_major_version: 20
+app_port: 4000
+pm2_app_name: logichain-api
+pm2_instances: 1
+pm2_max_memory_restart: 400M
+
+app_repo_url: https://github.com/BriceBOKATOLA/logichain.git
+app_repo_branch: main
+# Révision déployée : surchargée par le pipeline CD avec le SHA exact du commit
+# validé, pour que le serveur exécute très précisément ce qui a été testé.
+app_repo_version: "{{ app_repo_branch }}"
+
+# Le code de l'API vit dans le sous-dossier backend/ du mono-repo.
+app_backend_subdir: backend

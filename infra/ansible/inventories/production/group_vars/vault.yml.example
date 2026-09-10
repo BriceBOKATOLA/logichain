@@ -1,0 +1,31 @@
+---
+# ---------------------------------------------------------------------------
+# MODÈLE de fichier de secrets. NE JAMAIS COMMITER LA VERSION REMPLIE EN CLAIR.
+#
+# Procédure :
+#   1. cp vault.yml.example vault.yml
+#   2. Remplir les valeurs (voir commandes de génération ci-dessous)
+#   3. ansible-vault encrypt vault.yml
+#   4. Les playbooks se lancent ensuite avec --ask-vault-pass
+#      (ou --vault-password-file, le fichier de mot de passe restant hors dépôt)
+#
+# Le .gitignore exclut déjà `vault.yml` : seul ce `.example` est versionné.
+# Génération de valeurs robustes :
+#   openssl rand -hex 32     -> secrets JWT
+#   openssl rand -base64 24  -> mots de passe MongoDB
+# ---------------------------------------------------------------------------
+
+# IP publique du VPS (Hostinger).
+vault_server_ip: "203.0.113.10"
+
+# --- Secrets JWT ------------------------------------------------------------
+# DOIVENT être différents l'un de l'autre et faire au moins 16 caractères :
+# `src/config/env.js` refuse de démarrer l'API sinon.
+vault_jwt_access_secret: "REMPLACER_openssl_rand_hex_32"
+vault_jwt_refresh_secret: "REMPLACER_AUTRE_openssl_rand_hex_32"
+
+# --- MongoDB ----------------------------------------------------------------
+# Compte administrateur (création des bases et des utilisateurs).
+vault_mongodb_admin_password: "REMPLACER_openssl_rand_base64_24"
+# Compte applicatif, restreint en readWrite sur la seule base `logichain`.
+vault_mongodb_app_password: "REMPLACER_AUTRE_openssl_rand_base64_24"

@@ -1,0 +1,12 @@
+---
+- name: Recharger le service SSH
+  ansible.builtin.service:
+    name: ssh
+    state: reloaded
+  listen: reload sshd
+
+- name: Redémarrer Fail2Ban
+  ansible.builtin.service:
+    name: fail2ban
+    state: restarted
+  listen: restart fail2ban

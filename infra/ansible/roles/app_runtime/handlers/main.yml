@@ -1,0 +1,14 @@
+---
+- name: Recharger l'API sans coupure de service
+  # `pm2 reload` redémarre les workers un par un : les requêtes en cours sont
+  # servies jusqu'au bout (le serveur gère SIGINT/SIGTERM proprement).
+  # `--update-env` est indispensable pour que les nouvelles variables du
+  # fichier .env soient réellement prises en compte.
+  ansible.builtin.command:
+    cmd: pm2 reload {{ pm2_app_name }} --update-env
+  become: true
+  become_user: "{{ app_user }}"
+  environment:
+    PM2_HOME: "/home/{{ app_user }}/.pm2"
+  changed_when: true
+  listen: reload api

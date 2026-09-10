@@ -1,0 +1,7 @@
+// Géré par Ansible (rôle system_security).
+// Active le téléchargement et l'application automatiques des mises à jour
+// de sécurité, exigence de base pour un serveur exposé sur Internet.
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+APT::Periodic::Download-Upgradeable-Packages "1";
+APT::Periodic::AutocleanInterval "7";

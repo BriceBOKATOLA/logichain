@@ -1,0 +1,217 @@
+---
+# ===========================================================================
+# Rôle Database — MongoDB 7.0 sécurisé
+#
+# Décisions structurantes :
+#  - écoute sur 127.0.0.1 uniquement : la base n'est jamais joignable depuis
+#    Internet, l'API tournant sur le même hôte ;
+#  - replica set à un nœud : requis par les transactions ACID multi-documents
+#    utilisées par RouteService.validateStop() ;
+#  - authentification activée dès le départ + keyFile pour l'authentification
+#    interne du replica set (MongoDB l'exige quand replication et
+#    authorization sont actives ensemble) ;
+#  - deux comptes distincts : un administrateur, et un compte applicatif
+#    restreint en readWrite sur la seule base « {{ mongodb_database }} ».
+# ===========================================================================
+
+# --- Dépôt et paquets -------------------------------------------------------
+
+- name: Créer le répertoire des trousseaux APT
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Installer la clé de signature du dépôt MongoDB
+  ansible.builtin.get_url:
+    url: "https://pgp.mongodb.com/server-{{ mongodb_version }}.asc"
+    dest: "/etc/apt/keyrings/mongodb-server-{{ mongodb_version }}.asc"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Déclarer le dépôt APT MongoDB
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [ arch=amd64,arm64 signed-by=/etc/apt/keyrings/mongodb-server-{{ mongodb_version }}.asc ]
+      https://repo.mongodb.org/apt/ubuntu
+      {{ ansible_facts['distribution_release'] }}/mongodb-org/{{ mongodb_version }} multiverse
+    filename: "mongodb-org-{{ mongodb_version }}"
+    state: present
+    update_cache: true
+
+- name: Installer MongoDB et les outils de sauvegarde
+  ansible.builtin.apt:
+    name:
+      - mongodb-org
+      - mongodb-mongosh
+      - mongodb-database-tools # fournit mongodump / mongorestore (cf. rôle backup)
+    state: present
+
+- name: Installer le pilote Python requis par les modules Ansible MongoDB
+  ansible.builtin.apt:
+    name: python3-pymongo
+    state: present
+
+# --- Authentification interne du replica set --------------------------------
+
+- name: Vérifier la présence du keyFile du replica set
+  ansible.builtin.stat:
+    path: /etc/mongodb-keyfile
+  register: mongodb_keyfile_stat
+
+- name: Générer le keyFile du replica set
+  # Double garde (`when` + `creates`) : la commande ne s'exécute qu'une seule
+  # fois dans la vie du serveur. Régénérer ce fichier casserait le replica set.
+  ansible.builtin.shell:
+    cmd: set -o pipefail && openssl rand -base64 756 > /etc/mongodb-keyfile
+    creates: /etc/mongodb-keyfile
+    executable: /bin/bash
+  when: not mongodb_keyfile_stat.stat.exists
+
+- name: Restreindre les droits du keyFile
+  ansible.builtin.file:
+    path: /etc/mongodb-keyfile
+    owner: mongodb
+    group: mongodb
+    # MongoDB refuse de démarrer si le keyFile est lisible par d'autres comptes.
+    mode: "0400"
+
+# --- Configuration ----------------------------------------------------------
+
+- name: Créer le répertoire de logs MongoDB
+  ansible.builtin.file:
+    path: "{{ mongodb_log_path | dirname }}"
+    state: directory
+    owner: mongodb
+    group: mongodb
+    mode: "0755"
+
+- name: Déployer la configuration MongoDB
+  ansible.builtin.template:
+    src: mongod.conf.j2
+    dest: /etc/mongod.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart mongod
+
+- name: Activer et démarrer MongoDB
+  ansible.builtin.service:
+    name: mongod
+    state: started
+    enabled: true
+
+# Les handlers doivent être joués MAINTENANT : les tâches suivantes se
+# connectent à la base et exigent que la configuration soit déjà active.
+- name: Appliquer immédiatement les changements de configuration
+  ansible.builtin.meta: flush_handlers
+
+- name: Attendre que MongoDB accepte les connexions
+  ansible.builtin.wait_for:
+    host: "{{ mongodb_bind_ip }}"
+    port: "{{ mongodb_port }}"
+    delay: 2
+    timeout: 90
+
+# --- Amorçage (une seule fois par serveur) ----------------------------------
+
+- name: Vérifier si l'amorçage du replica set a déjà eu lieu
+  ansible.builtin.stat:
+    path: /etc/logichain/.mongodb-bootstrapped
+  register: mongodb_bootstrap_marker
+
+- name: Amorcer le replica set et le compte administrateur
+  # Ce bloc s'appuie sur « l'exception localhost » de MongoDB : tant qu'aucun
+  # utilisateur n'existe, une connexion locale peut initier le replica set et
+  # créer le tout premier compte. Cette fenêtre se referme définitivement dès
+  # la création de l'administrateur — d'où le marqueur qui évite d'y revenir.
+  when: not mongodb_bootstrap_marker.stat.exists
+  block:
+    - name: Initier le replica set à un nœud
+      community.mongodb.mongodb_replicaset:
+        login_host: "{{ mongodb_bind_ip }}"
+        login_port: "{{ mongodb_port }}"
+        replica_set: "{{ mongodb_replica_set }}"
+        members:
+          - "{{ mongodb_bind_ip }}:{{ mongodb_port }}"
+
+    - name: Attendre l'élection du nœud PRIMARY
+      community.mongodb.mongodb_status:
+        login_host: "{{ mongodb_bind_ip }}"
+        login_port: "{{ mongodb_port }}"
+        replica_set: "{{ mongodb_replica_set }}"
+        poll: 15
+        interval: 4
+
+    - name: Créer le compte administrateur MongoDB
+      community.mongodb.mongodb_user:
+        login_host: "{{ mongodb_bind_ip }}"
+        login_port: "{{ mongodb_port }}"
+        replica_set: "{{ mongodb_replica_set }}"
+        database: admin
+        name: "{{ mongodb_admin_user }}"
+        password: "{{ vault_mongodb_admin_password }}"
+        roles:
+          - userAdminAnyDatabase
+          - dbAdminAnyDatabase
+          - readWriteAnyDatabase
+          - clusterAdmin
+        state: present
+
+    - name: Créer le répertoire d'état LogiChain
+      ansible.builtin.file:
+        path: /etc/logichain
+        state: directory
+        owner: root
+        group: root
+        mode: "0750"
+
+    - name: Poser le marqueur d'amorçage
+      ansible.builtin.copy:
+        content: |
+          Amorçage MongoDB effectué par Ansible.
+          Replica set : {{ mongodb_replica_set }}
+          Administrateur : {{ mongodb_admin_user }}
+          Ne pas supprimer : ce fichier évite de rejouer l'amorçage, qui
+          échouerait une fois l'exception localhost refermée.
+        dest: /etc/logichain/.mongodb-bootstrapped
+        owner: root
+        group: root
+        mode: "0640"
+
+# --- Réconciliation (à chaque exécution) ------------------------------------
+
+- name: Vérifier l'état du replica set
+  community.mongodb.mongodb_status:
+    login_host: "{{ mongodb_bind_ip }}"
+    login_port: "{{ mongodb_port }}"
+    login_user: "{{ mongodb_admin_user }}"
+    login_password: "{{ vault_mongodb_admin_password }}"
+    login_database: admin
+    replica_set: "{{ mongodb_replica_set }}"
+    poll: 10
+    interval: 3
+
+- name: Créer le compte applicatif restreint à la base LogiChain
+  community.mongodb.mongodb_user:
+    login_host: "{{ mongodb_bind_ip }}"
+    login_port: "{{ mongodb_port }}"
+    login_user: "{{ mongodb_admin_user }}"
+    login_password: "{{ vault_mongodb_admin_password }}"
+    login_database: admin
+    replica_set: "{{ mongodb_replica_set }}"
+    database: "{{ mongodb_database }}"
+    name: "{{ mongodb_app_user }}"
+    password: "{{ vault_mongodb_app_password }}"
+    # Principe du moindre privilège : lecture/écriture sur la seule base
+    # applicative. Aucun droit d'administration, aucun accès aux autres bases.
+    roles:
+      - db: "{{ mongodb_database }}"
+        role: readWrite
+    # `on_create` rend la tâche idempotente : sans cela le module réécrirait le
+    # mot de passe à chaque exécution et rapporterait « changed » indéfiniment.
+    update_password: on_create
+    state: present
