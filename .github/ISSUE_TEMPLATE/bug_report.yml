@@ -1,0 +1,72 @@
+name: Signalement de bogue
+description: Signaler un dysfonctionnement de l'API ou de l'application mobile
+title: "fix: "
+labels: [bogue, à-trier]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Merci de prendre le temps de signaler ce problème. Plus le contexte est
+        précis, plus la correction sera rapide — et sûre.
+
+  - type: dropdown
+    id: composant
+    attributes:
+      label: Composant concerné
+      options:
+        - Backend (API Node.js)
+        - Frontend (application mobile)
+        - Infrastructure (Ansible / serveur)
+        - CI/CD (pipelines)
+        - Je ne sais pas
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environnement
+    attributes:
+      label: Environnement
+      options: [Production, Recette, Local]
+    validations:
+      required: true
+
+  - type: textarea
+    id: attendu
+    attributes:
+      label: Comportement attendu
+    validations:
+      required: true
+
+  - type: textarea
+    id: constate
+    attributes:
+      label: Comportement constaté
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Étapes de reproduction
+      placeholder: |
+        1. Se connecter en tant que `agent@logichain.io`
+        2. Scanner le QR code QR-0001 en mode avion
+        3. Réactiver le réseau
+        4. Observer…
+    validations:
+      required: true
+
+  - type: textarea
+    id: journaux
+    attributes:
+      label: Journaux et messages d'erreur
+      description: |
+        Sur le serveur : `pm2 logs logichain-api --lines 100`
+        Pensez à retirer tout jeton ou donnée personnelle avant de coller.
+      render: shell
+
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit concerné
+      placeholder: "main @ a1b2c3d, ou release déployée 20260910T143000"

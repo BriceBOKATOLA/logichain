@@ -23,9 +23,13 @@ export default function TaskCard({ item, onPress }) {
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]}>
       <View style={styles.row}>
-        <Text style={styles.label} numberOfLines={1}>{item.label}</Text>
+        <Text style={styles.label} numberOfLines={1}>
+          {item.label}
+        </Text>
         <View style={[styles.badge, { backgroundColor: stateColor + '22', borderColor: stateColor }]}>
-          <Text style={[styles.badgeText, { color: stateColor }]}>{STATE_LABELS[item.state] || item.state}</Text>
+          <Text style={[styles.badgeText, { color: stateColor }]}>
+            {STATE_LABELS[item.state] || item.state}
+          </Text>
         </View>
       </View>
       <Text style={styles.qr}>{item.qrCode}</Text>

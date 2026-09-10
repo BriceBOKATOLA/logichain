@@ -1,0 +1,155 @@
+name: CI Backend
+
+# Déclenchement à chaque Push ET à chaque Pull Request sur develop et main,
+# conformément au cahier des charges (§4.3 « Validations automatisées »).
+#
+# Volontairement SANS filtre `paths` : un filtre empêcherait le job de se
+# déclencher sur une PR ne touchant pas backend/, et une Branch Protection Rule
+# qui exige ce job resterait alors bloquée « en attente » indéfiniment.
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+  # Rend ce workflow réutilisable : le pipeline de déploiement l'appelle comme
+  # barrière qualité, ce qui évite de dupliquer les jobs de test et garantit
+  # que production et CI valident exactement les mêmes règles.
+  workflow_call:
+
+# Une nouvelle poussée sur une PR annule l'exécution précédente : inutile de
+# payer deux fois pour valider un état devenu obsolète.
+concurrency:
+  group: ci-backend-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: backend
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  lint:
+    name: Qualité de code (ESLint + Prettier)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Installer les dépendances
+        # `npm ci` échoue si package.json et package-lock.json divergent :
+        # c'est aussi un contrôle de cohérence du verrouillage des versions.
+        run: npm ci
+
+      - name: Analyse statique ESLint
+        # `--max-warnings 0` : un avertissement toléré aujourd'hui devient une
+        # dette permanente. La barre est à zéro.
+        run: npm run lint
+
+      - name: Vérification du formatage Prettier
+        run: npm run format:check
+
+  test-unit:
+    name: Tests unitaires
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Exécuter les tests unitaires
+        run: npm run test:unit -- --ci
+
+  test-integration:
+    name: Tests d'intégration (MongoDB replica set)
+    runs-on: ubuntu-latest
+    env:
+      # Version et distribution épinglées : sans cela, mongodb-memory-server
+      # choisit une build au hasard selon l'image du runner et la suite
+      # devient non déterministe d'une exécution à l'autre.
+      MONGOMS_VERSION: 7.0.14
+      MONGOMS_DISTRO: ubuntu-2204
+      MONGOMS_DOWNLOAD_DIR: ${{ github.workspace }}/.cache/mongodb-binaries
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Mettre en cache le binaire MongoDB
+        # Le binaire pèse ~80 Mo : le retélécharger à chaque exécution
+        # ajouterait une minute et une dépendance réseau inutiles.
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.cache/mongodb-binaries
+          key: mongodb-binaries-${{ runner.os }}-${{ env.MONGOMS_VERSION }}
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Exécuter les tests d'intégration
+        # Ces tests démarrent un vrai replica set MongoDB en mémoire et
+        # traversent toute la pile Express -> Mongoose, ce qui couvre le
+        # câblage N-Tier que les tests unitaires ne voient pas.
+        run: npm run test:integration -- --ci
+
+  coverage:
+    name: Couverture de code
+    runs-on: ubuntu-latest
+    needs: [test-unit, test-integration]
+    env:
+      MONGOMS_VERSION: 7.0.14
+      MONGOMS_DISTRO: ubuntu-2204
+      MONGOMS_DOWNLOAD_DIR: ${{ github.workspace }}/.cache/mongodb-binaries
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Restaurer le cache du binaire MongoDB
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.cache/mongodb-binaries
+          key: mongodb-binaries-${{ runner.os }}-${{ env.MONGOMS_VERSION }}
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Produire le rapport de couverture
+        run: npm run test:ci
+
+      - name: Publier le rapport
+        uses: actions/upload-artifact@v4
+        with:
+          name: couverture-backend
+          path: backend/coverage/
+          retention-days: 14

@@ -30,7 +30,7 @@ export function useTasks(eventId) {
       ]);
       await localItemRepository.upsertMany(data.data, protectedIds);
       await loadFromCache();
-    } catch (e) {
+    } catch {
       // Silencieux : on reste sur les données locales si le réseau est indisponible.
     }
   }, [eventId, loadFromCache]);

@@ -1,0 +1,36 @@
+name: Demande de fonctionnalité
+description: Proposer une évolution de la plateforme
+title: "feat: "
+labels: [évolution, à-trier]
+body:
+  - type: textarea
+    id: besoin
+    attributes:
+      label: Besoin métier
+      description: Quel problème concret cette évolution résout-elle, et pour qui ?
+      placeholder: "En tant qu'agent de terrain, je veux… afin de…"
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solution envisagée
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives étudiées
+      description: Ce qui a été écarté, et pourquoi. Cette section évite de refaire le même débat dans six mois.
+
+  - type: checkboxes
+    id: impacts
+    attributes:
+      label: Impacts pressentis
+      options:
+        - label: Modifie le contrat de l'API (nécessite une mise à jour d'OpenAPI)
+        - label: Nécessite une migration de données
+        - label: Introduit une nouvelle variable d'environnement
+        - label: Modifie l'infrastructure serveur

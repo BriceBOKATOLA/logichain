@@ -1,0 +1,16 @@
+# Propriétaires du code — GitHub demande automatiquement leur revue sur toute
+# Pull Request touchant les chemins correspondants.
+#
+# Combiné à la règle « Require review from Code Owners » des Branch Protection
+# Rules, ce fichier rend la revue de code obligatoire et non contournable,
+# comme l'exige le §4.1 du cahier des charges.
+
+# Par défaut : toute modification passe par le mainteneur.
+*                       @BriceBOKATOLA
+
+# Infrastructure et pipelines : ce sont les fichiers dont une erreur casse la
+# production ou expose des secrets. Ils méritent une vigilance particulière.
+/infra/                 @BriceBOKATOLA
+/.github/workflows/     @BriceBOKATOLA
+/.gitignore             @BriceBOKATOLA
+/docs/RUNBOOK.md        @BriceBOKATOLA

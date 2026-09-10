@@ -13,10 +13,18 @@ export default function SyncStatusBadge() {
   const label = syncing
     ? 'Synchronisation…'
     : isOnline
-      ? (pendingCount > 0 ? `${pendingCount} action(s) à synchroniser` : 'À jour')
+      ? pendingCount > 0
+        ? `${pendingCount} action(s) à synchroniser`
+        : 'À jour'
       : `Hors-ligne · ${pendingCount} en file`;
 
-  const dotColor = syncing ? colors.accent : isOnline ? (pendingCount > 0 ? colors.warning : colors.primary) : colors.offline;
+  const dotColor = syncing
+    ? colors.accent
+    : isOnline
+      ? pendingCount > 0
+        ? colors.warning
+        : colors.primary
+      : colors.offline;
 
   return (
     <View style={styles.container}>
