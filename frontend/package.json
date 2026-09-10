@@ -40,7 +40,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",
-    "@babel/generator": "^7.29.8",
+    "@babel/generator": "^8.0.0",
     "@eslint/js": "^9.13.0",
     "babel-preset-expo": "~54.0.10",
     "eslint": "^9.13.0",
