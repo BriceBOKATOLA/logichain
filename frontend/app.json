@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "LogiChainMobile",
+    "slug": "logichain-mobile",
+    "version": "1.0.0",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "sdkVersion": "54.0.0",
+    "entryPoint": "./App.js",
+    "orientation": "portrait",
+    "android": {
+      "package": "com.logichainplatform",
+      "versionCode": 1
+    },
+    "plugins": [
+      "expo-sqlite"
+    ]
+  }
+}

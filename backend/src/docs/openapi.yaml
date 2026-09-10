@@ -1,0 +1,860 @@
+openapi: 3.0.3
+info:
+  title: LogiChain API
+  description: >
+    API industrielle de gestion de la chaîne logistique événementielle.
+    Architecture N-Tier (Entity / Repository / Service / Controller), MongoDB,
+    verrouillage optimiste, synchronisation offline-first et alertes temps réel.
+  version: 1.0.0
+  contact:
+    name: LA MANU - Grande École
+servers:
+  - url: http://localhost:4000/api/v1
+    description: Environnement local
+
+tags:
+  - name: Auth
+  - name: Users
+  - name: Events
+  - name: Items
+  - name: Routes
+  - name: Monitoring
+  - name: Realtime
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        statusCode: { type: integer }
+        message: { type: string }
+        data: {}
+        meta: { type: object }
+
+    GeoPoint:
+      type: object
+      properties:
+        type: { type: string, enum: [Point] }
+        coordinates:
+          type: array
+          items: { type: number }
+          minItems: 2
+          maxItems: 2
+
+    GeoPolygon:
+      type: object
+      properties:
+        type: { type: string, enum: [Polygon] }
+        coordinates:
+          type: array
+          items:
+            type: array
+            items:
+              type: array
+              items: { type: number }
+
+    RegisterInput:
+      type: object
+      required: [email, password, fullName, role]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+        fullName: { type: string }
+        role: { type: string, enum: [admin, logistics_manager, field_agent, transporter] }
+        assignedZone: { type: string, nullable: true }
+
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+
+    AuthTokens:
+      type: object
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        user: { type: object }
+
+    EventInput:
+      type: object
+      required: [name, startDate, endDate]
+      properties:
+        name: { type: string }
+        startDate: { type: string, format: date-time }
+        endDate: { type: string, format: date-time }
+        status: { type: string, enum: [draft, active, closed] }
+        zones:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              geometry: { $ref: '#/components/schemas/GeoPolygon' }
+
+    ZoneInput:
+      type: object
+      required: [name, geometry]
+      properties:
+        name: { type: string }
+        geometry: { $ref: '#/components/schemas/GeoPolygon' }
+
+    Event:
+      type: object
+      properties:
+        _id: { type: string }
+        name: { type: string }
+        startDate: { type: string, format: date-time }
+        endDate: { type: string, format: date-time }
+        status: { type: string }
+        zones:
+          type: array
+          items:
+            type: object
+            properties:
+              _id: { type: string }
+              name: { type: string }
+              geometry: { $ref: '#/components/schemas/GeoPolygon' }
+
+    ItemInput:
+      type: object
+      required: [label, qrCode]
+      properties:
+        label: { type: string }
+        qrCode: { type: string }
+        eventId: { type: string, description: "Optionnel : l'eventId du chemin d'URL fait toujours autorité." }
+        carbonWeightKg: { type: number }
+        transportMode: { type: string, enum: [road, rail, electric_vehicle, foot] }
+
+    Item:
+      type: object
+      properties:
+        _id: { type: string }
+        label: { type: string }
+        qrCode: { type: string }
+        eventId: { type: string }
+        state: { type: string, enum: [in_stock, in_transit, delivered, in_maintenance, anomaly] }
+        location: { $ref: '#/components/schemas/GeoPoint' }
+        version: { type: integer }
+        history:
+          type: array
+          items:
+            type: object
+            properties:
+              fromState: { type: string }
+              toState: { type: string }
+              changedAt: { type: string, format: date-time }
+              offline: { type: boolean }
+
+    ScanInput:
+      type: object
+      required: [expectedVersion, toState]
+      properties:
+        expectedVersion: { type: integer, description: "Version connue par le client (verrouillage optimiste)" }
+        toState: { type: string, enum: [in_stock, in_transit, delivered, in_maintenance, anomaly] }
+        location: { $ref: '#/components/schemas/GeoPoint' }
+        note: { type: string }
+        occurredAt: { type: string, format: date-time }
+
+    SyncBatchInput:
+      type: object
+      required: [actions]
+      properties:
+        actions:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/ScanInput'
+              - type: object
+                required: [clientActionId, itemId, occurredAt]
+                properties:
+                  clientActionId: { type: string }
+                  itemId: { type: string }
+
+    RouteInput:
+      type: object
+      required: [eventId, transporterId, stops]
+      properties:
+        eventId: { type: string }
+        transporterId: { type: string }
+        stops:
+          type: array
+          items:
+            type: object
+            properties:
+              itemIds:
+                type: array
+                items: { type: string }
+              location: { $ref: '#/components/schemas/GeoPoint' }
+              plannedAt: { type: string, format: date-time }
+
+    Error:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        statusCode: { type: integer }
+        message: { type: string }
+        data: { nullable: true }
+
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Créer un compte utilisateur
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterInput' }
+      responses:
+        '201': { description: Compte créé, content: { application/json: { schema: { $ref: '#/components/schemas/ApiResponse' } } } }
+        '409': { description: Email déjà utilisé, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { description: Données invalides }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Authentification (JWT access + refresh)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginInput' }
+      responses:
+        '200':
+          description: Connexion réussie
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/AuthTokens' }
+        '401': { description: Identifiants invalides }
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rafraîchir le token d'accès
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200': { description: Nouveaux tokens }
+        '401': { description: Refresh token invalide }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Déconnexion (invalide le refresh token)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Déconnexion réussie }
+
+  /users:
+    get:
+      tags: [Users]
+      summary: Lister les comptes utilisateurs (admin uniquement)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: role
+          schema: { type: string, enum: [admin, logistics_manager, field_agent, transporter] }
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50 }
+      responses:
+        '200': { description: Liste paginée des utilisateurs }
+        '403': { description: "Réservé aux administrateurs" }
+
+  /users/{id}:
+    get:
+      tags: [Users]
+      summary: Récupérer un compte utilisateur par ID (admin uniquement)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Utilisateur trouvé }
+        '404': { description: Utilisateur introuvable }
+    patch:
+      tags: [Users]
+      summary: Modifier un compte (rôle, secteur assigné, nom, mot de passe) — admin uniquement
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+                fullName: { type: string }
+                role: { type: string, enum: [admin, logistics_manager, field_agent, transporter] }
+                assignedZone: { type: string, nullable: true }
+      responses:
+        '200': { description: Utilisateur mis à jour }
+        '404': { description: Utilisateur introuvable }
+        '422': { description: Données invalides }
+    delete:
+      tags: [Users]
+      summary: Désactiver un compte (admin uniquement — pas de suppression physique, pour préserver l'audit)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Utilisateur désactivé }
+        '404': { description: Utilisateur introuvable }
+
+  /events:
+    post:
+      tags: [Events]
+      summary: Créer un événement (admin / logistics_manager)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EventInput' }
+      responses:
+        '201': { description: Événement créé }
+        '422': { description: Données invalides }
+    get:
+      tags: [Events]
+      summary: Lister les événements
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50 }
+      responses:
+        '200':
+          description: Liste paginée
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Event' }
+
+  /events/active:
+    get:
+      tags: [Events]
+      summary: Récupérer l'événement actif le plus pertinent (utilisé par le mobile pour se brancher automatiquement)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Événement actif trouvé }
+        '404': { description: Aucun événement actif }
+
+  /events/{id}:
+    get:
+      tags: [Events]
+      summary: Récupérer un événement par ID
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Événement trouvé }
+        '404': { description: Événement introuvable }
+    patch:
+      tags: [Events]
+      summary: Mettre à jour partiellement un événement (admin / logistics_manager)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                startDate: { type: string, format: date-time }
+                endDate: { type: string, format: date-time }
+                status: { type: string, enum: [draft, active, closed] }
+      responses:
+        '200': { description: Événement mis à jour }
+        '404': { description: Événement introuvable }
+        '422': { description: "Données invalides (dates incohérentes)" }
+    delete:
+      tags: [Events]
+      summary: Supprimer un événement (admin uniquement, refusé si du matériel y est encore rattaché)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Événement supprimé }
+        '404': { description: Événement introuvable }
+        '409': { description: "Refusé : des items sont encore rattachés à cet événement" }
+
+  /events/{id}/zones:
+    post:
+      tags: [Events]
+      summary: Ajouter une zone géographique à l'événement
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ZoneInput' }
+      responses:
+        '200': { description: Zone ajoutée }
+        '404': { description: Événement introuvable }
+
+  /events/{id}/agent-zone:
+    get:
+      tags: [Events]
+      summary: Déterminer la zone contenant la position GPS d'un agent
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: lng
+          required: true
+          schema: { type: number }
+        - in: query
+          name: lat
+          required: true
+          schema: { type: number }
+      responses:
+        '200': { description: Zone trouvée (ou null) }
+
+  /events/{eventId}/items:
+    post:
+      tags: [Items]
+      summary: Créer un item (matériel tracé)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ItemInput' }
+      responses:
+        '201': { description: Item créé }
+        '422': { description: Données invalides }
+    get:
+      tags: [Items]
+      summary: Lister les items d'un événement
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema: { type: string }
+        - in: query
+          name: updatedSince
+          schema: { type: string, format: date-time }
+          description: "Delta-sync : ne retourne que les items modifiés depuis cette date (évite de retélécharger tout le référentiel à chaque synchronisation mobile)."
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50 }
+      responses:
+        '200':
+          description: Liste paginée d'items
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Item' }
+
+  /events/{eventId}/items/qr/{qrCode}:
+    get:
+      tags: [Items]
+      summary: Récupérer un item via son QR code / code-barre
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema: { type: string }
+        - in: path
+          name: qrCode
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Item trouvé }
+        '404': { description: Aucun item ne correspond à ce code }
+
+  /events/{eventId}/items/{id}:
+    get:
+      tags: [Items]
+      summary: Récupérer un item par son identifiant Mongo
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema: { type: string }
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Item trouvé }
+        '404': { description: Item introuvable }
+    patch:
+      tags: [Items]
+      summary: Modifier les métadonnées d'un item (libellé, poids carbone, mode de transport) — admin / logistics_manager
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema: { type: string }
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedVersion]
+              properties:
+                expectedVersion: { type: integer, description: "Verrouillage optimiste, comme pour /scan" }
+                label: { type: string }
+                carbonWeightKg: { type: number }
+                transportMode: { type: string, enum: [road, rail, electric_vehicle, foot] }
+      responses:
+        '200': { description: Item mis à jour }
+        '404': { description: Item introuvable }
+        '409': { description: Conflit de version }
+        '422': { description: Données invalides }
+    delete:
+      tags: [Items]
+      summary: Supprimer définitivement un item — admin / logistics_manager
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema: { type: string }
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Item supprimé }
+        '404': { description: Item introuvable }
+
+  /events/{eventId}/items/{id}/scan:
+    patch:
+      tags: [Items]
+      summary: Appliquer une transition d'état après scan (verrouillage optimiste)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema: { type: string }
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScanInput' }
+      responses:
+        '200': { description: Transition appliquée }
+        '409': { description: Conflit de version (la ressource a été modifiée entre-temps) }
+        '422': { description: Transition d'état invalide }
+
+  /events/{eventId}/items/{id}/anomaly:
+    patch:
+      tags: [Items]
+      summary: Déclarer une anomalie géolocalisée sur un item
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema: { type: string }
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScanInput' }
+      responses:
+        '200': { description: Anomalie déclarée }
+
+  /events/{eventId}/items/sync:
+    post:
+      tags: [Items]
+      summary: Synchroniser un lot d'actions capturées hors-ligne
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SyncBatchInput' }
+      responses:
+        '200':
+          description: Rapport de synchronisation (actions appliquées / en conflit)
+
+  /routes:
+    post:
+      tags: [Routes]
+      summary: Créer une feuille de route pour un transporteur
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RouteInput' }
+      responses:
+        '201': { description: Feuille de route créée }
+    get:
+      tags: [Routes]
+      summary: Supervision admin — toutes les feuilles de route d'un événement, tous transporteurs confondus
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: eventId
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Liste de toutes les feuilles de route de l'événement }
+        '400': { description: "Paramètre eventId manquant" }
+
+  /routes/transporter/{transporterId}:
+    get:
+      tags: [Routes]
+      summary: Lister les feuilles de route d'un transporteur
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: transporterId
+          required: true
+          schema: { type: string }
+        - in: query
+          name: eventId
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Liste des feuilles de route }
+
+  /routes/{id}:
+    get:
+      tags: [Routes]
+      summary: Récupérer une feuille de route par ID
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Feuille de route trouvée }
+        '404': { description: Feuille de route introuvable }
+    patch:
+      tags: [Routes]
+      summary: Modifier une feuille de route AVANT son exécution (admin / logistics_manager)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                transporterId: { type: string }
+                stops:
+                  type: array
+                  items: { type: object }
+                status: { type: string, enum: [planned, in_progress, completed, validated] }
+      responses:
+        '200': { description: Feuille de route mise à jour }
+        '404': { description: Feuille de route introuvable }
+        '409': { description: "Refusé : des arrêts ont déjà été validés sur le terrain" }
+    delete:
+      tags: [Routes]
+      summary: Supprimer une feuille de route non encore exécutée (admin / logistics_manager)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Feuille de route supprimée }
+        '404': { description: Feuille de route introuvable }
+        '409': { description: "Refusé : l'exécution a déjà commencé" }
+
+  /routes/{id}/stops/{stopId}/validate:
+    patch:
+      tags: [Routes]
+      summary: Valider un arrêt (transaction ACID)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: path
+          name: stopId
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Arrêt validé }
+        '404': { description: Arrêt ou feuille de route introuvable }
+
+  /events/{eventId}/monitoring/stock:
+    get:
+      tags: [Monitoring]
+      summary: KPI d'état des stocks (agrégation par état)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Répartition des items par état }
+
+  /events/{eventId}/monitoring/carbon:
+    get:
+      tags: [Monitoring]
+      summary: Empreinte carbone consolidée en temps réel
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Total CO2e consolidé }
+
+  /events/{eventId}/monitoring/carbon/history:
+    get:
+      tags: [Monitoring]
+      summary: Historique de l'empreinte carbone (collection Time Series)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema: { type: string }
+        - in: query
+          name: sinceMinutes
+          schema: { type: integer, default: 120 }
+      responses:
+        '200': { description: Série temporelle }
+
+  /events/{eventId}/monitoring/bottlenecks:
+    get:
+      tags: [Monitoring]
+      summary: Détection des goulots d'étranglement
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema: { type: string }
+        - in: query
+          name: thresholdMinutes
+          schema: { type: integer, default: 60 }
+      responses:
+        '200': { description: Items bloqués au-delà du seuil }
+
+  /realtime/stream/{eventId}:
+    get:
+      tags: [Realtime]
+      summary: Flux SSE d'alertes critiques (fallback si WebSocket indisponible)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: text/event-stream d'alertes
+          content:
+            text/event-stream:
+              schema: { type: string }

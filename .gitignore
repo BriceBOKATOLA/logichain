@@ -1,0 +1,74 @@
+# ---------------------------------------------------------------------------
+# LogiChain — Ignore global du mono-repo
+# Règle non-négociable (Partie 3, §5) : aucun secret, aucun artefact de build
+# et aucune dépendance ne doit entrer dans l'historique Git.
+# ---------------------------------------------------------------------------
+
+# --- Dépendances -----------------------------------------------------------
+node_modules/
+.pnp/
+.pnp.js
+
+# --- Secrets & configuration locale ---------------------------------------
+# Seuls les fichiers *.example sont versionnés.
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+!**/roles/**/*.key.example
+id_rsa
+id_rsa.*
+.vault_pass
+.vault_pass.txt
+infra/ansible/inventories/**/host_vars/**/vault.yml
+!infra/ansible/inventories/**/host_vars/**/vault.yml.example
+
+# --- Build & artefacts -----------------------------------------------------
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# --- Logs ------------------------------------------------------------------
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- Mobile / React Native / Expo -----------------------------------------
+.expo/
+.expo-shared/
+frontend/android/build/
+frontend/android/app/build/
+frontend/android/.gradle/
+frontend/android/.cxx/
+frontend/android/local.properties
+frontend/android/app/debug.keystore
+frontend/android/app/release.keystore
+frontend/ios/build/
+frontend/ios/Pods/
+*.apk
+*.aab
+*.ipa
+*.jsbundle
+*.keystore
+!frontend/android/app/debug.keystore.example
+
+# --- IDE / OS --------------------------------------------------------------
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# --- Ansible ---------------------------------------------------------------
+infra/ansible/*.retry
+infra/ansible/.ansible/
+infra/ansible/roles/galaxy/
+
+# --- Divers ----------------------------------------------------------------
+.tmp/
+tmp/

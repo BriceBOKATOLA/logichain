@@ -1,0 +1,27 @@
+{
+  "name": "logichain-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mono-repo LogiChain — API Node.js/Express (backend), application mobile React Native (frontend) et infrastructure Ansible (infra).",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "scripts": {
+    "install:all": "npm --prefix backend ci && npm --prefix frontend ci",
+    "lint": "npm run lint:backend && npm run lint:frontend",
+    "lint:backend": "npm --prefix backend run lint",
+    "lint:frontend": "npm --prefix frontend run lint",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "npm --prefix backend test",
+    "test:frontend": "npm --prefix frontend test",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend start",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "deploy:staging": "ansible-playbook -i infra/ansible/inventories/staging/hosts.yml infra/ansible/playbooks/site.yml",
+    "deploy:production": "ansible-playbook -i infra/ansible/inventories/production/hosts.yml infra/ansible/playbooks/site.yml"
+  },
+  "comment": "Ce manifeste n'a AUCUNE dependance : il ne sert qu'a orchestrer les sous-projets. Toute dependance applicative appartient a backend/package.json ou frontend/package.json (cf. docs/adr/ADR-001-monorepo.md)."
+}
