@@ -22,8 +22,15 @@ id_rsa
 id_rsa.*
 .vault_pass
 .vault_pass.txt
-infra/ansible/inventories/**/vault.yml
-!infra/ansible/inventories/**/vault.yml.example
+*.vault-pass
+
+# NOTE sur `vault.yml` : ce fichier EST versionné, et c'est volontaire.
+# Ansible Vault le chiffre en AES-256 ; le versionner est la pratique
+# canonique, et c'est ce qui permet au pipeline de déploiement d'y accéder
+# sans qu'un secret transite hors de Git. Le job « Sécurité » vérifie à chaque
+# exécution qu'il commence bien par `$ANSIBLE_VAULT` et fait échouer le
+# pipeline si quelqu'un le committait déchiffré.
+# Le mot de passe qui l'ouvre, lui, n'est JAMAIS dans le dépôt (motifs ci-dessus).
 
 # --- Build & artefacts -----------------------------------------------------
 dist/

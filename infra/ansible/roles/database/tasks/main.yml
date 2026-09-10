@@ -137,6 +137,13 @@
         replica_set: "{{ mongodb_replica_set }}"
         members:
           - "{{ mongodb_bind_ip }}:{{ mongodb_port }}"
+        # Le module exige par défaut un nombre impair d'au moins 3 membres,
+        # règle pertinente pour un cluster à haute disponibilité mais pas ici :
+        # le replica set n'est présent que pour DÉBLOQUER LES TRANSACTIONS ACID,
+        # indisponibles sur un mongod autonome. Un seul nœud est donc un choix
+        # assumé — la contrepartie (absence de redondance) est documentée au
+        # §8 du Runbook.
+        validate: false
 
     - name: Attendre l'élection du nœud PRIMARY
       community.mongodb.mongodb_status:
