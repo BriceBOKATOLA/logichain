@@ -70,7 +70,7 @@ jobs:
         run: npm run test:ci
 
       - name: Publier le rapport de couverture
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: couverture-mobile
           path: frontend/coverage/

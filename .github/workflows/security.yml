@@ -132,7 +132,7 @@ jobs:
 
       - name: Publier le rapport d'audit mobile
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: audit-mobile
           path: frontend/audit-mobile.txt
