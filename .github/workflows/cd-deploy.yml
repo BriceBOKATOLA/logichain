@@ -186,7 +186,16 @@ jobs:
   smoke-test:
     name: Test de fumée
     needs: [deploy]
-    if: needs.deploy.result == 'success'
+    # `always()` est OBLIGATOIRE ici, pas une précaution superflue. Sans lui,
+    # ce job était systématiquement sauté — constaté sur une exécution réelle.
+    # GitHub applique par défaut un verrou implicite de succès qui se propage
+    # à TOUTE la chaîne d'ancêtres, pas seulement aux dépendances directes :
+    # `quality-gate` (sauté en workflow_dispatch, normal) est un ancêtre de
+    # `deploy`, lui-même parent direct de ce job. Ce verrou bloquait donc
+    # `smoke-test` malgré un `deploy` réussi, avant même que la condition
+    # explicite ci-dessous ne soit évaluée. `always()` neutralise ce verrou
+    # hérité ; la condition explicite reste la seule qui décide réellement.
+    if: always() && needs.deploy.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Interroger la sonde de santé publique
