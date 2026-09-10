@@ -13,34 +13,41 @@ export function useScanner(eventId) {
   const [lastResult, setLastResult] = useState(null);
   const [error, setError] = useState(null);
 
-  const handleScan = useCallback(async (rawValue, toState, note) => {
-    setError(null);
-    const qrCode = scannerService.onCodeScanned(rawValue);
+  const handleScan = useCallback(
+    async (rawValue, toState, note) => {
+      setError(null);
+      const qrCode = scannerService.onCodeScanned(rawValue);
 
-    const item = await localItemRepository.findByQrCode(qrCode);
-    if (!item) {
-      scannerService.vibrateError();
-      setError("Cet équipement n'est pas connu localement. Synchronisez d'abord le référentiel.");
-      return null;
-    }
+      const item = await localItemRepository.findByQrCode(qrCode);
+      if (!item) {
+        scannerService.vibrateError();
+        setError("Cet équipement n'est pas connu localement. Synchronisez d'abord le référentiel.");
+        return null;
+      }
 
-    let coords = null;
-    try { coords = await locationService.getCurrentPosition(); } catch { /* GPS indisponible, on continue */ }
+      let coords = null;
+      try {
+        coords = await locationService.getCurrentPosition();
+      } catch {
+        /* GPS indisponible, on continue */
+      }
 
-    const location = coords ? { type: 'Point', coordinates: [coords.lng, coords.lat] } : undefined;
+      const location = coords ? { type: 'Point', coordinates: [coords.lng, coords.lat] } : undefined;
 
-    await syncService.recordTransition({
-      eventId,
-      itemId: item._id,
-      expectedVersion: item.version,
-      toState,
-      location,
-      note,
-    });
+      await syncService.recordTransition({
+        eventId,
+        itemId: item._id,
+        expectedVersion: item.version,
+        toState,
+        location,
+        note,
+      });
 
-    setLastResult({ item, toState });
-    return item;
-  }, [eventId]);
+      setLastResult({ item, toState });
+      return item;
+    },
+    [eventId],
+  );
 
   return { handleScan, lastResult, error };
 }

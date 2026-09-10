@@ -30,7 +30,9 @@ export default function SyncCenterScreen() {
     setConflicts(await syncService.getConflicts(eventId));
   }, [eventId]);
 
-  useEffect(() => { loadConflicts(); }, [loadConflicts, pendingCount]);
+  useEffect(() => {
+    loadConflicts();
+  }, [loadConflicts, pendingCount]);
 
   const onForceSync = async () => {
     await forceSync();
@@ -64,7 +66,12 @@ export default function SyncCenterScreen() {
         {isOnline ? 'Connecté au réseau' : 'Hors-ligne'} · {pendingCount} action(s) en attente
       </Text>
 
-      <PrimaryButton label="Forcer la synchronisation" onPress={onForceSync} loading={syncing} disabled={!isOnline} />
+      <PrimaryButton
+        label="Forcer la synchronisation"
+        onPress={onForceSync}
+        loading={syncing}
+        disabled={!isOnline}
+      />
 
       <Text style={styles.sectionTitle}>Conflits détectés</Text>
       <FlatList
@@ -109,7 +116,14 @@ const styles = StyleSheet.create({
   title: { ...typography.h1, fontSize: 22, marginBottom: spacing.xs },
   status: { ...typography.caption, marginBottom: spacing.lg },
   sectionTitle: { ...typography.h2, fontSize: 16, marginTop: spacing.xl, marginBottom: spacing.sm },
-  conflictCard: { backgroundColor: colors.surface, borderColor: colors.danger, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm },
+  conflictCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.danger,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
   conflictItem: { ...typography.body, fontWeight: '600' },
   conflictTransition: { ...typography.caption, marginTop: spacing.xs },
   conflictReason: { ...typography.caption, marginTop: spacing.xs, color: colors.danger },

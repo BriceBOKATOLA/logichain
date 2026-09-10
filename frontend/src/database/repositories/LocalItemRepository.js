@@ -29,7 +29,18 @@ class LocalItemRepository {
         `INSERT INTO items (id, event_id, label, qr_code, state, version, lat, lng, raw_json, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET label=excluded.label`,
-        [item._id, item.eventId, item.label, item.qrCode, item.state, item.version, lat, lng, JSON.stringify(item), Date.now()],
+        [
+          item._id,
+          item.eventId,
+          item.label,
+          item.qrCode,
+          item.state,
+          item.version,
+          lat,
+          lng,
+          JSON.stringify(item),
+          Date.now(),
+        ],
       );
       return;
     }
@@ -40,7 +51,18 @@ class LocalItemRepository {
        ON CONFLICT(id) DO UPDATE SET
          label=excluded.label, state=excluded.state, version=excluded.version,
          lat=excluded.lat, lng=excluded.lng, raw_json=excluded.raw_json, updated_at=excluded.updated_at`,
-      [item._id, item.eventId, item.label, item.qrCode, item.state, item.version, lat, lng, JSON.stringify(item), Date.now()],
+      [
+        item._id,
+        item.eventId,
+        item.label,
+        item.qrCode,
+        item.state,
+        item.version,
+        lat,
+        lng,
+        JSON.stringify(item),
+        Date.now(),
+      ],
     );
   }
 
@@ -50,7 +72,9 @@ class LocalItemRepository {
   }
 
   async findByEvent(eventId) {
-    const result = await db.execute('SELECT * FROM items WHERE event_id = ? ORDER BY updated_at DESC', [eventId]);
+    const result = await db.execute('SELECT * FROM items WHERE event_id = ? ORDER BY updated_at DESC', [
+      eventId,
+    ]);
     const rows = [];
     for (let i = 0; i < result.rows.length; i += 1) rows.push(this._parse(result.rows.item(i)));
     return rows;
@@ -84,10 +108,12 @@ class LocalItemRepository {
    * d'attente, voir SyncQueueRepository — jamais une simple décrémentation devinée).
    */
   async rollback(itemId, previousState, previousVersion) {
-    await db.execute(
-      'UPDATE items SET state = ?, version = ?, updated_at = ? WHERE id = ?',
-      [previousState, previousVersion, Date.now(), itemId],
-    );
+    await db.execute('UPDATE items SET state = ?, version = ?, updated_at = ? WHERE id = ?', [
+      previousState,
+      previousVersion,
+      Date.now(),
+      itemId,
+    ]);
   }
 
   async bumpVersion(itemId, newVersion) {
@@ -102,9 +128,10 @@ class LocalItemRepository {
       version: row.version,
       // Les coordonnées peuvent avoir été mises à jour localement par une transition
       // optimiste avant toute synchronisation : elles font autorité sur celles du JSON figé.
-      location: (row.lat != null && row.lng != null)
-        ? { type: 'Point', coordinates: [row.lng, row.lat] }
-        : base.location,
+      location:
+        row.lat != null && row.lng != null
+          ? { type: 'Point', coordinates: [row.lng, row.lat] }
+          : base.location,
     };
   }
 }
