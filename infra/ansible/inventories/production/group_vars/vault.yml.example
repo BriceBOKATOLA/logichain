@@ -5,11 +5,14 @@
 # Procédure :
 #   1. cp vault.yml.example vault.yml
 #   2. Remplir les valeurs (voir commandes de génération ci-dessous)
-#   3. ansible-vault encrypt vault.yml
+#   3. ansible-vault encrypt vault.yml        <-- ÉTAPE OBLIGATOIRE
 #   4. Les playbooks se lancent ensuite avec --ask-vault-pass
 #      (ou --vault-password-file, le fichier de mot de passe restant hors dépôt)
 #
-# Le .gitignore exclut déjà `vault.yml` : seul ce `.example` est versionné.
+# `vault.yml` EST versionné, mais uniquement CHIFFRÉ : le job « Sécurité » de
+# la CI fait échouer le pipeline si le fichier ne commence pas par
+# `$ANSIBLE_VAULT`. Ne committez donc jamais l'étape 2 sans l'étape 3.
+# Voir docs/SECURITY.md §2.
 # Génération de valeurs robustes :
 #   openssl rand -hex 32     -> secrets JWT
 #   openssl rand -base64 24  -> mots de passe MongoDB
