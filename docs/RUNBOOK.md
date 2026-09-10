@@ -15,9 +15,10 @@
 | Hébergeur              | Hostinger (VPS)                                     |
 | Adresse IPv4           | `31.97.178.83`                                      |
 | Nom de domaine         | `logichain.online`                                  |
-| Système                | Ubuntu 22.04 LTS — 1 vCPU, 3,9 Go RAM, 49 Go disque |
+| Système                | Ubuntu 22.04 LTS — 1 vCPU, 3,9 Go RAM + 2 Go swap, 49 Go disque |
 | Accès SSH              | `ssh -i ~/.ssh/logichain_deploy deploy@31.97.178.83` |
-| API                    | `https://logichain.online` (port interne 4000)      |
+| Application web        | `https://logichain.online` (fichiers statiques, servis par Nginx) |
+| API                    | `https://logichain.online/api/v1` (port interne 4000) |
 | Documentation OpenAPI  | `https://logichain.online/api-docs`                 |
 | Sonde de santé         | `https://logichain.online/health`                   |
 | Base de données        | MongoDB 7.0, replica set `rs0`, écoute sur `127.0.0.1` uniquement |
@@ -417,6 +418,9 @@ sudo lastb | head -20                # tentatives de connexion échouées
 | Le déploiement échoue sur `npm ci`      | `package.json` et `package-lock.json` désynchronisés | Relancer `npm install` en local et commiter le lock              |
 | Rollback impossible (« 1 release »)     | Serveur fraîchement provisionné          | Redéployer une révision antérieure : `deploy.yml -e app_repo_version=<sha>` |
 | Certificat expiré                       | Timer certbot inactif                    | `sudo systemctl enable --now certbot.timer && sudo certbot renew`      |
+| Déploiement lent ou tué en cours de build web | Pic mémoire pendant `npm run build:web` (Metro) sur un VPS à mémoire limitée | Vérifier `free -h` — le swapfile de 2 Go doit absorber le pic ; sinon `sudo dmesg \| grep -i "killed process"` pour confirmer un OOM |
+| Page web blanche sur `/tasks`, `/carte`, etc. | `try_files` du vhost Nginx mal appliqué (config non rechargée) | `sudo nginx -t && sudo systemctl reload nginx` ; vérifier que la racine pointe sur `current/frontend/web-build` |
+| Les données locales web disparaissent après un F5 | En-têtes COOP/COEP absents (SQLite web perd OPFS) | `curl -sI https://logichain.online \| grep -i cross-origin` : les deux en-têtes doivent être présents |
 
 ---
 

@@ -128,6 +128,29 @@
       become_user: "{{ app_user }}"
       changed_when: false
 
+    - name: Installer les dépendances de l'application web
+      # Même garantie de reproductibilité que pour le backend (lock file figé).
+      # `--legacy-peer-deps` : l'écosystème Expo/React Native publie des plages
+      # de peerDependencies plus strictes que la réalité (même contrainte que
+      # dans le pipeline CI, voir .github/workflows/ci-mobile.yml).
+      ansible.builtin.command:
+        cmd: npm ci --legacy-peer-deps --no-audit --no-fund
+        chdir: "{{ release_path }}/{{ app_frontend_subdir }}"
+        creates: "{{ release_path }}/{{ app_frontend_subdir }}/node_modules"
+      become: true
+      become_user: "{{ app_user }}"
+
+    - name: Construire le bundle web
+      # Produit frontend/web-build/, servi statiquement par Nginx à la racine
+      # du domaine (rôle web_proxy). Mobile et web partagent ainsi le même
+      # code source React Native, sans pipeline de build distinct.
+      ansible.builtin.command:
+        cmd: npm run build:web
+        chdir: "{{ release_path }}/{{ app_frontend_subdir }}"
+      become: true
+      become_user: "{{ app_user }}"
+      changed_when: true
+
     - name: Basculer le lien « current » sur la nouvelle release
       # Bascule atomique : le module `file` remplace le lien en une seule
       # opération, sans instant où `current` pointerait dans le vide.

@@ -55,6 +55,56 @@ Un **seul** fichier est à adapter pour brancher l'application sur un backend :
 > faut impérativement l'IP LAN du poste de développement, et autoriser le port
 > 4000 dans le pare-feu.
 
+## Version web
+
+Le même code source (React Native + `react-native-web`) tourne aussi dans le
+navigateur, servi par Nginx sur **le même domaine que l'API** :
+<https://logichain.online>.
+
+```bash
+npm run web              # serveur de développement (expo start --web)
+npm run build:web        # export statique de production -> frontend/web-build/
+```
+
+### Routes
+
+La navigation (React Navigation) est câblée sur de vraies URL via `linking`
+dans [`src/navigation/AppNavigator.js`](src/navigation/AppNavigator.js) :
+chaque route répond directement à un chargement de page ou un lien partagé
+(F5, favori, lien envoyé par message), pas seulement à une navigation interne.
+
+| Route       | Écran                          |
+| ----------- | ------------------------------ |
+| `/`         | Tableau de bord (`Dashboard`)  |
+| `/tasks`    | Liste des tâches               |
+| `/scan`     | Scan de matériel               |
+| `/sync`     | Centre de synchronisation      |
+| `/carte`    | Carte des zones et du matériel |
+| `/anomalie` | Déclaration d'anomalie         |
+| `/login`    | Connexion                      |
+
+### Différences plateforme
+
+Deux composants ont une implémentation distincte par plateforme — Metro
+choisit automatiquement le bon fichier selon la cible (suffixe `.web.js`),
+sans `Platform.OS` dispersé dans le code métier :
+
+| Composant                               | Natif (Android/iOS) | Web                                                |
+| --------------------------------------- | ------------------- | -------------------------------------------------- |
+| `src/components/ZoneMap.js` / `.web.js` | `react-native-maps` | Leaflet + OpenStreetMap (pas de clé d'API requise) |
+
+`expo-camera`, `expo-location`, `expo-sqlite` et `@react-native-async-storage`
+fournissent chacun leur propre implémentation web officielle : aucune
+adaptation supplémentaire n'a été nécessaire pour ces quatre-là.
+
+> **Stockage local (SQLite) sur le web** — `expo-sqlite` utilise un moteur
+> WebAssembly (wa-sqlite) persistant via OPFS, ce qui exige que la page soit
+> servie avec les en-têtes `Cross-Origin-Opener-Policy: same-origin` et
+> `Cross-Origin-Embedder-Policy: require-corp` (posés par Nginx en production,
+> et par `metro.config.js` en développement). Le support navigateur est le
+> plus robuste sur les moteurs Chromium (Chrome, Edge) ; Safari a un support
+> plus récent et moins éprouvé pour OPFS.
+
 ## Qualité et tests
 
 ```bash
