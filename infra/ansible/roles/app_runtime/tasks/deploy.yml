@@ -8,10 +8,16 @@
 # de configuration provoquerait un redémarrage applicatif inutile en pleine
 # exploitation.
 
-- name: Résoudre la révision cible sur le dépôt distant
+- name: Résoudre la révision cible sur le dépôt distant # noqa: command-instead-of-module
   # `git ls-remote` traduit une branche ou une étiquette en SHA. Si
   # `app_repo_version` est déjà un SHA complet (cas du pipeline CD), la commande
   # ne renvoie rien et on conserve la valeur telle quelle.
+  #
+  # noqa justifié : le module ansible.builtin.git CLONE ou met à jour un dépôt.
+  # Il ne sait pas interroger un dépôt distant sans rien écrire sur le disque,
+  # ce qui est précisément ce dont on a besoin ici pour DÉCIDER s'il faut
+  # déployer. Utiliser le module reviendrait à cloner pour savoir s'il faut
+  # cloner.
   ansible.builtin.command:
     cmd: "git ls-remote {{ app_repo_url }} {{ app_repo_version }}"
   register: remote_ref
@@ -23,7 +29,9 @@
   ansible.builtin.set_fact:
     target_revision: "{{ (remote_ref.stdout.split()[0]) if (remote_ref.stdout | length > 0) else app_repo_version }}"
 
-- name: Relever la révision actuellement déployée
+- name: Relever la révision actuellement déployée # noqa: command-instead-of-module
+  # noqa justifié : lecture pure de l'état local (`rev-parse`), sans aucune
+  # modification. Le module git n'expose pas cette opération.
   ansible.builtin.command:
     cmd: "git -C {{ app_current_dir }} rev-parse HEAD"
   register: current_revision
