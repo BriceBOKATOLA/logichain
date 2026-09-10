@@ -12,12 +12,19 @@ import ScanScreen from '../screens/ScanScreen';
 import SyncCenterScreen from '../screens/SyncCenterScreen';
 import AnomalyDeclarationScreen from '../screens/AnomalyDeclarationScreen';
 import MapScreen from '../screens/MapScreen';
+import RouteScreen from '../screens/RouteScreen';
 import { useAuthContext } from '../context/AuthContext';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-const ICONS = { Dashboard: 'home', Tasks: 'list', Scan: 'maximize', Sync: 'refresh-cw' };
+const ICONS = {
+  Dashboard: 'home',
+  Tasks: 'list',
+  Scan: 'maximize',
+  Routes: 'navigation',
+  Sync: 'refresh-cw',
+};
 
 /**
  * Configuration des routes web (et des liens profonds natifs). Le tableau de
@@ -35,6 +42,7 @@ const linking = {
           Dashboard: '',
           Tasks: 'tasks',
           Scan: 'scan',
+          Routes: 'itineraire',
           Sync: 'sync',
         },
       },
@@ -58,6 +66,7 @@ function MainTabs() {
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
       <Tab.Screen name="Tasks" component={TaskListScreen} />
       <Tab.Screen name="Scan" component={ScanScreen} />
+      <Tab.Screen name="Routes" component={RouteScreen} options={{ title: 'Itinéraire' }} />
       <Tab.Screen name="Sync" component={SyncCenterScreen} />
     </Tab.Navigator>
   );
