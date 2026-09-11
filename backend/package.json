@@ -18,6 +18,7 @@
     "test:watch": "jest --watch",
     "test:ci": "jest --ci --runInBand --coverage",
     "db:seed": "node scripts/seed.js",
+    "db:seed:events": "node scripts/seed-many-events.js",
     "db:indexes": "node scripts/ensure-indexes.js",
     "qrcodes": "node scripts/generate-qrcodes.js"
   },

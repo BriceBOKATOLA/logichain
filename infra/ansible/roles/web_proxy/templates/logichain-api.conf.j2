@@ -1,8 +1,7 @@
 # {{ ansible_managed }}
-# Reverse proxy LogiChain : sert l'application web à la racine du domaine et
-# proxifie l'API Node.js sur ses chemins réservés (/api/, /api-docs, /health,
-# /socket.io/). Les deux applications (mobile ET web, issues du même code
-# source frontend/) partagent ainsi le même nom de domaine sans conflit.
+# Reverse proxy LogiChain : sert l'application web (tableau de bord de
+# supervision) à la racine du domaine et proxifie l'API Node.js sur ses
+# chemins réservés (/api/, /api-docs, /health, /socket.io/).
 {% set server_name = ([app_domain] + app_domain_aliases) | join(' ') if app_domain | length > 0 else '_' %}
 {% set web_root = app_current_dir + '/' + app_frontend_subdir + '/web-build' %}
 
@@ -124,25 +123,21 @@ server {
         proxy_send_timeout 60s;
     }
 
-    # --- Application web (mobile ET web partagent frontend/) --------------
-    # Fichiers statiques export Metro (`npm run build:web`). `try_files` avec
-    # repli sur index.html est ce qui permet à une URL comme /tasks ou /carte
-    # d'être servie directement au premier chargement (F5, lien partagé) :
-    # sans lui, Nginx renverrait 404 sur toute route autre que la racine,
-    # puisque ces chemins n'existent qu'en tant qu'état de navigation côté
-    # client (React Navigation), jamais comme fichiers réels sur le disque.
+    # --- Application web (tableau de bord de supervision) -----------------
+    # Fichiers statiques export Metro (`npm run build:web`). Le web se limite
+    # désormais au Dashboard (décision produit : scan, itinéraires, sync,
+    # carte et anomalies restent mobiles uniquement) — `try_files` avec repli
+    # sur index.html reste nécessaire pour que /login réponde directement au
+    # premier chargement (F5, lien partagé), ce chemin n'existant qu'en tant
+    # qu'état de navigation côté client, jamais comme fichier réel sur disque.
+    #
+    # Aucun en-tête Cross-Origin-Opener-Policy / Embedder-Policy ici : ils
+    # n'étaient nécessaires que pour le moteur SQLite web (OPFS) et Leaflet,
+    # tous deux retirés du bundle web avec la carte et le mode hors-ligne.
     root {{ web_root }};
     index index.html;
 
     location / {
-        # Isolation d'origine croisée requise par le moteur SQLite web
-        # (wa-sqlite, via OPFS/SharedArrayBuffer) utilisé par expo-sqlite sur
-        # le web. Sans ces deux en-têtes, la base locale ne persiste pas d'un
-        # rechargement de page à l'autre. Posés uniquement ici (et non sur les
-        # routes API) pour ne pas contraindre inutilement Swagger UI.
-        add_header Cross-Origin-Opener-Policy "same-origin" always;
-        add_header Cross-Origin-Embedder-Policy "require-corp" always;
-
         try_files $uri $uri/ /index.html;
     }
 
@@ -151,8 +146,6 @@ server {
     # risque, un déploiement change le hash et donc l'URL, jamais le contenu
     # d'une URL déjà en cache.
     location /_expo/static/ {
-        add_header Cross-Origin-Opener-Policy "same-origin" always;
-        add_header Cross-Origin-Embedder-Policy "require-corp" always;
         expires 1y;
         add_header Cache-Control "public, immutable";
     }
