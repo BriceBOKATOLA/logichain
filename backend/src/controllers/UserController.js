@@ -41,11 +41,12 @@ class UserController {
     }
   };
 
-  /** DELETE /users/:id — Désactive le compte (pas de suppression physique, préserve l'audit). */
-  deactivate = async (req, res, next) => {
+  /** PATCH /users/:id/status — Active ou désactive le compte, en un geste réversible. */
+  setStatus = async (req, res, next) => {
     try {
-      await userService.deactivate(req.params.id);
-      return new ApiResponse(200, null, 'Utilisateur désactivé.').send(res);
+      const user = await userService.setActive(req.params.id, req.body.isActive);
+      const message = req.body.isActive ? 'Utilisateur réactivé.' : 'Utilisateur désactivé.';
+      return new ApiResponse(200, user, message).send(res);
     } catch (err) {
       next(err);
     }

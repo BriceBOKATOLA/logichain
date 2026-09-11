@@ -20,8 +20,15 @@ export default function LoginScreen() {
     setError(null);
     try {
       await login(email, password);
-    } catch {
-      setError('Connexion impossible. Vérifiez vos identifiants ou votre réseau.');
+    } catch (err) {
+      // WEB_ADMIN_ONLY (AuthContext.web.js) : message précis, distinct de
+      // l'erreur générique — l'agent doit comprendre que ses identifiants
+      // sont corrects mais que le web est réservé aux administrateurs.
+      setError(
+        err?.code === 'WEB_ADMIN_ONLY'
+          ? err.message
+          : 'Connexion impossible. Vérifiez vos identifiants ou votre réseau.',
+      );
     } finally {
       setLoading(false);
     }
@@ -30,7 +37,7 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Text style={styles.logo}>LogiChain</Text>
-      <Text style={styles.subtitle}>Application terrain — logistique événementielle</Text>
+      <Text style={styles.subtitle}>Application terrain, logistique événementielle</Text>
 
       <View style={styles.form}>
         <TextInput

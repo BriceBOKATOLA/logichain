@@ -3,6 +3,8 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import LoginScreen from '../screens/LoginScreen';
 import DashboardScreen from '../screens/DashboardScreen';
+import EventDetailScreen from '../screens/EventDetailScreen';
+import UsersScreen from '../screens/UsersScreen';
 import { useAuthContext } from '../context/AuthContext';
 
 const Stack = createNativeStackNavigator();
@@ -13,6 +15,8 @@ const linking = {
     screens: {
       Login: 'login',
       Dashboard: '',
+      EventDetail: 'evenements/:eventId',
+      Users: 'utilisateurs',
     },
   },
 };
@@ -39,7 +43,11 @@ export default function AppNavigator() {
         {!user ? (
           <Stack.Screen name="Login" component={LoginScreen} />
         ) : (
-          <Stack.Screen name="Dashboard" component={DashboardScreen} />
+          <>
+            <Stack.Screen name="Dashboard" component={DashboardScreen} />
+            <Stack.Screen name="EventDetail" component={EventDetailScreen} />
+            <Stack.Screen name="Users" component={UsersScreen} />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>

@@ -323,18 +323,30 @@ paths:
         '200': { description: Utilisateur mis à jour }
         '404': { description: Utilisateur introuvable }
         '422': { description: Données invalides }
-    delete:
+
+  /users/{id}/status:
+    patch:
       tags: [Users]
-      summary: Désactiver un compte (admin uniquement — pas de suppression physique, pour préserver l'audit)
+      summary: Activer ou désactiver un compte, en un geste réversible (admin uniquement — pas de suppression physique, pour préserver l'audit)
       security: [{ bearerAuth: [] }]
       parameters:
         - in: path
           name: id
           required: true
           schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [isActive]
+              properties:
+                isActive: { type: boolean }
       responses:
-        '200': { description: Utilisateur désactivé }
+        '200': { description: Utilisateur activé ou désactivé }
         '404': { description: Utilisateur introuvable }
+        '422': { description: Données invalides }
 
   /events:
     post:
