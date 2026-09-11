@@ -55,55 +55,54 @@ Un **seul** fichier est à adapter pour brancher l'application sur un backend :
 > faut impérativement l'IP LAN du poste de développement, et autoriser le port
 > 4000 dans le pare-feu.
 
-## Version web
+## Version web — tableau de bord de supervision
 
 Le même code source (React Native + `react-native-web`) tourne aussi dans le
 navigateur, servi par Nginx sur **le même domaine que l'API** :
 <https://logichain.online>.
+
+**Décision de scope volontaire** : le web se limite au **tableau de bord de
+supervision multi-événements**. Le scan de matériel, les itinéraires, le
+centre de synchronisation, la carte et la déclaration d'anomalie restent des
+fonctionnalités de **terrain, mobiles uniquement** — elles reposent sur la
+caméra, la localisation en arrière-plan et la file d'attente hors-ligne
+SQLite, qui n'ont pas leur place dans un usage bureau/supervision. Cette
+séparation est appliquée au niveau de l'arborescence, pas d'un simple masquage
+visuel : `App.web.js` et `AppNavigator.web.js` (sélectionnés automatiquement
+par Metro via le suffixe `.web.js`) n'importent tout simplement pas les
+écrans, hooks ni dépendances natives concernés (caméra, SQLite, Leaflet) —
+Metro les exclut donc entièrement du bundle web, qui est passé de 1,26 Mo à
+725 Ko une fois ce périmètre resserré.
 
 ```bash
 npm run web              # serveur de développement (expo start --web)
 npm run build:web        # export statique de production -> frontend/web-build/
 ```
 
-### Routes
+### Routes web
 
-La navigation (React Navigation) est câblée sur de vraies URL via `linking`
-dans [`src/navigation/AppNavigator.js`](src/navigation/AppNavigator.js) :
-chaque route répond directement à un chargement de page ou un lien partagé
-(F5, favori, lien envoyé par message), pas seulement à une navigation interne.
+| Route    | Écran                                                                          |
+| -------- | ------------------------------------------------------------------------------ |
+| `/`      | Tableau de bord — liste de tous les événements avec leurs indicateurs de stock |
+| `/login` | Connexion                                                                      |
 
-| Route       | Écran                          |
-| ----------- | ------------------------------ |
-| `/`         | Tableau de bord (`Dashboard`)  |
-| `/tasks`    | Liste des tâches               |
-| `/scan`     | Scan de matériel               |
-| `/sync`     | Centre de synchronisation      |
-| `/carte`    | Carte des zones et du matériel |
-| `/anomalie` | Déclaration d'anomalie         |
-| `/login`    | Connexion                      |
+Le tableau de bord web ([`DashboardScreen.web.js`](src/screens/DashboardScreen.web.js))
+diffère volontairement de celui du mobile
+([`DashboardScreen.js`](src/screens/DashboardScreen.js)) : ce dernier reste
+scopé au seul événement actif de l'agent connecté (`GET /events/active`),
+tandis que la version web liste **tous** les événements
+(`GET /events`) avec leur statut et leur répartition de stock — une vue de
+supervision, pas une vue de terrain. Les indicateurs par événement nécessitent
+un rôle `admin` ou `logistics_manager` (mêmes règles d'accès que l'API) ; un
+autre rôle voit la liste des événements sans leurs statistiques plutôt qu'une
+erreur bloquante.
 
 ### Différences plateforme
 
-Deux composants ont une implémentation distincte par plateforme — Metro
-choisit automatiquement le bon fichier selon la cible (suffixe `.web.js`),
-sans `Platform.OS` dispersé dans le code métier :
-
-| Composant                               | Natif (Android/iOS) | Web                                                |
-| --------------------------------------- | ------------------- | -------------------------------------------------- |
-| `src/components/ZoneMap.js` / `.web.js` | `react-native-maps` | Leaflet + OpenStreetMap (pas de clé d'API requise) |
-
-`expo-camera`, `expo-location`, `expo-sqlite` et `@react-native-async-storage`
-fournissent chacun leur propre implémentation web officielle : aucune
-adaptation supplémentaire n'a été nécessaire pour ces quatre-là.
-
-> **Stockage local (SQLite) sur le web** — `expo-sqlite` utilise un moteur
-> WebAssembly (wa-sqlite) persistant via OPFS, ce qui exige que la page soit
-> servie avec les en-têtes `Cross-Origin-Opener-Policy: same-origin` et
-> `Cross-Origin-Embedder-Policy: require-corp` (posés par Nginx en production,
-> et par `metro.config.js` en développement). Le support navigateur est le
-> plus robuste sur les moteurs Chromium (Chrome, Edge) ; Safari a un support
-> plus récent et moins éprouvé pour OPFS.
+`ZoneMap.js` / `ZoneMap.web.js` (react-native-maps vs Leaflet+OpenStreetMap)
+et le moteur SQLite web d'`expo-sqlite` (wa-sqlite/OPFS) restent dans le code
+pour l'usage mobile, mais ne sont plus jamais chargés par le web depuis que
+celui-ci se limite au Dashboard — voir la note de scope ci-dessus.
 
 ## Qualité et tests
 
