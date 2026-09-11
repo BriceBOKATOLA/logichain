@@ -1,53 +1,62 @@
 ---
-# Variables de l'environnement de RECETTE. Volontairement identiques à la
-# production sauf sur les points où la recette doit rester plus légère et plus
-# permissive (déploiement de `develop`, une seule instance PM2, pas de HTTPS).
+# Variables de l'environnement de RECETTE (staging).
+#
+# Décision d'infrastructure : la recette tourne sur LE MÊME VPS que la
+# production (un seul serveur pour ce projet), jamais sur un hôte séparé.
+# Chaque valeur ci-dessous qui pourrait entrer en collision avec la
+# production (répertoire de release, port applicatif, nom de processus PM2,
+# base de données MongoDB, fichier de vhost Nginx) est donc délibérément
+# DIFFÉRENTE de inventories/production/group_vars/logichain_servers.yml.
+# `system_security` et `backup` ne sont volontairement PAS rejoués pour cet
+# environnement (voir --skip-tags dans le Runbook) : ce sont des réglages au
+# niveau du serveur, déjà appliqués une fois par la production.
 env_name: staging
 
 app_name: logichain
 app_user: deploy
 app_group: deploy
-app_root: /opt/logichain
+# Arborescence de releases totalement séparée de la production.
+app_root: /opt/logichain-staging
 app_current_dir: "{{ app_root }}/current"
 app_releases_dir: "{{ app_root }}/releases"
 app_shared_dir: "{{ app_root }}/shared"
 app_keep_releases: 3
 
 nodejs_major_version: 20
-app_port: 4000
-pm2_app_name: logichain-api
+# Port distinct de la production (4000) : les deux processus Node.js
+# cohabitent sur le même VPS, chacun sur son propre port local.
+app_port: 4001
+pm2_app_name: logichain-api-staging
 pm2_instances: 1
+pm2_max_memory_restart: 400M
 
 app_repo_url: https://github.com/BriceBOKATOLA/logichain.git
 # La recette suit `develop` : c'est là que les features fusionnées sont validées
 # avant d'être promues vers `main` (cf. docs/GITFLOW.md).
 app_repo_branch: develop
 
-app_domain: ""
-letsencrypt_email: ""
+# Sous-domaine dédié : nécessite un enregistrement DNS A
+# staging.logichain.online -> IP du VPS (même IP que logichain.online).
+app_domain: "staging.logichain.online"
+app_domain_aliases: []
+letsencrypt_email: "ebangarodmilson@gmail.com"
 nginx_client_max_body_size: 10m
-app_cors_origin: "http://{{ ansible_host }}"
+nginx_rate_limit_rps: 20
+nginx_rate_limit_burst: 40
+app_cors_origin: "https://{{ app_domain }}"
 
 mongodb_version: "7.0"
 mongodb_port: 27017
 mongodb_bind_ip: 127.0.0.1
-mongodb_database: logichain
-mongodb_app_user: logichain_app
+# Même instance et même replica set que la production (mongodb_bootstrap
+# n'est joué qu'une fois par serveur) : seules la base et l'utilisateur
+# applicatif sont propres à la recette, pour une isolation stricte des
+# données sans faire tourner un second MongoDB.
+mongodb_database: logichain_staging
+mongodb_app_user: logichain_staging_app
 mongodb_admin_user: logichain_admin
 mongodb_replica_set: rs0
 
-backup_dir: /var/backups/logichain
-backup_retention_days: 7
-backup_cron_hour: "4"
-backup_cron_minute: "0"
-
 ssh_port: 22
 deploy_authorized_keys: []
-ufw_allowed_ports:
-  - { port: "{{ ssh_port }}", proto: tcp, comment: "SSH" }
-  - { port: "80", proto: tcp, comment: "HTTP" }
-  - { port: "443", proto: tcp, comment: "HTTPS" }
-fail2ban_bantime: 1800
-fail2ban_findtime: 600
-fail2ban_maxretry: 5
 unattended_upgrades_enabled: false
