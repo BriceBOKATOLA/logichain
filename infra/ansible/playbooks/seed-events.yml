@@ -1,0 +1,33 @@
+---
+# ===========================================================================
+# Playbook OPÉRATIONNEL — peuple la base avec un jeu d'événements de
+# démonstration supplémentaire, pour donner au tableau de bord web de
+# supervision une vue multi-événements réaliste.
+#
+#   ansible-playbook -i inventories/production/hosts.yml playbooks/seed-events.yml
+#
+# Additif et rejouable sans risque : backend/scripts/seed-many-events.js ne
+# vide aucune collection et ignore les événements déjà présents (recherche
+# par nom). Le script lit backend/.env comme l'application elle-même (même
+# fichier gabarit que le rôle app_runtime) : aucune variable supplémentaire
+# à fournir ici.
+# ===========================================================================
+
+- name: Peupler la base avec des événements de démonstration
+  hosts: logichain_servers
+  become: true
+  become_user: "{{ app_user }}"
+
+  tasks:
+    - name: Exécuter le script de seed additif
+      ansible.builtin.command:
+        argv:
+          - node
+          - scripts/seed-many-events.js
+        chdir: "{{ app_current_dir }}/{{ app_backend_subdir }}"
+      register: seed_run
+      changed_when: "'créé' in seed_run.stdout"
+
+    - name: Afficher le résultat du seed
+      ansible.builtin.debug:
+        var: seed_run.stdout_lines
