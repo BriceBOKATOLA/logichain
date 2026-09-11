@@ -32,10 +32,19 @@
 
   tasks:
     - name: Désactiver temporairement l'authentification MongoDB
+      # La seule présence de `keyFile` suffit à MongoDB pour exiger une
+      # authentification, MÊME quand `authorization` n'est pas activé : les
+      # deux lignes doivent être neutralisées ensemble, sinon `createUser`
+      # continue de réclamer des identifiants qu'on n'a justement plus.
       ansible.builtin.replace:
         path: /etc/mongod.conf
-        regexp: '^  authorization: enabled$'
-        replace: "  # authorization: enabled  # DÉSACTIVÉ TEMPORAIREMENT (recover-mongo-admin.yml)"
+        regexp: "{{ item.regexp }}"
+        replace: "{{ item.replace }}"
+      loop:
+        - regexp: '^  authorization: enabled$'
+          replace: "  # authorization: enabled  # DÉSACTIVÉ TEMPORAIREMENT (recover-mongo-admin.yml)"
+        - regexp: '^  keyFile: /etc/mongodb-keyfile$'
+          replace: "  # keyFile: /etc/mongodb-keyfile  # DÉSACTIVÉ TEMPORAIREMENT (recover-mongo-admin.yml)"
       notify: Redémarrer mongod (récupération)
 
     - name: Appliquer la désactivation immédiatement
@@ -66,8 +75,13 @@
     - name: Réactiver l'authentification MongoDB
       ansible.builtin.replace:
         path: /etc/mongod.conf
-        regexp: '^  # authorization: enabled.*$'
-        replace: "  authorization: enabled"
+        regexp: "{{ item.regexp }}"
+        replace: "{{ item.replace }}"
+      loop:
+        - regexp: '^  # authorization: enabled.*$'
+          replace: "  authorization: enabled"
+        - regexp: '^  # keyFile: /etc/mongodb-keyfile.*$'
+          replace: "  keyFile: /etc/mongodb-keyfile"
       notify: Redémarrer mongod (récupération)
 
     - name: Appliquer la réactivation immédiatement
