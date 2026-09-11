@@ -1,0 +1,127 @@
+---
+# ===========================================================================
+# Playbook de RÉCUPÉRATION D'URGENCE — à utiliser UNE SEULE FOIS puis à
+# retirer du dépôt (ce n'est pas un outil d'exploitation courante).
+#
+# Contexte : le mot de passe GitHub Secret ANSIBLE_VAULT_PASSWORD a été perdu
+# (secrets GitHub : write-only, jamais relisibles par personne, même le
+# propriétaire du dépôt). Sans lui, inventories/production/group_vars/
+# vault.yml est illisible, donc les identifiants MongoDB qu'il contient sont
+# eux aussi inaccessibles.
+#
+# Ce playbook NE cherche PAS à récupérer l'ancien mot de passe (impossible) :
+# il en fixe un NOUVEAU, généré aléatoirement sur le runner CI/CD éphémère,
+# jamais écrit en clair dans le dépôt. Technique standard de récupération
+# MongoDB : désactiver temporairement l'authentification, se connecter sans
+# identifiants pour réinitialiser le mot de passe, puis la réactiver.
+#
+#   ansible-playbook -i inventories/production/hosts.yml playbooks/recover-mongo-admin.yml
+# ===========================================================================
+
+- name: Réinitialiser les identifiants MongoDB compromis par la perte du Vault
+  hosts: logichain_servers
+  become: true
+
+  vars:
+    # Générés sur le runner éphémère (jamais persistés dans le dépôt). La
+    # valeur n'est affichée QU'UNE FOIS, à la toute fin, pour être reportée
+    # manuellement dans un nouveau vault.yml chiffré avec un nouveau mot de
+    # passe Vault.
+    new_admin_password: "{{ lookup('ansible.builtin.password', '/tmp/logichain_recovery_admin_pw length=32 chars=ascii_letters,digits') }}"
+    new_app_password: "{{ lookup('ansible.builtin.password', '/tmp/logichain_recovery_app_pw length=32 chars=ascii_letters,digits') }}"
+
+  tasks:
+    - name: Désactiver temporairement l'authentification MongoDB
+      ansible.builtin.replace:
+        path: /etc/mongod.conf
+        regexp: '^  authorization: enabled$'
+        replace: "  # authorization: enabled  # DÉSACTIVÉ TEMPORAIREMENT (recover-mongo-admin.yml)"
+      notify: Redémarrer mongod (récupération)
+
+    - name: Appliquer la désactivation immédiatement
+      ansible.builtin.meta: flush_handlers
+
+    - name: Attendre que MongoDB accepte les connexions sans authentification
+      ansible.builtin.wait_for:
+        host: "{{ mongodb_bind_ip }}"
+        port: "{{ mongodb_port }}"
+        delay: 2
+        timeout: 60
+
+    - name: Réinitialiser le mot de passe administrateur (connexion non authentifiée)
+      community.mongodb.mongodb_user:
+        login_host: "{{ mongodb_bind_ip }}"
+        login_port: "{{ mongodb_port }}"
+        database: admin
+        name: "{{ mongodb_admin_user }}"
+        password: "{{ new_admin_password }}"
+        update_password: always
+        roles:
+          - userAdminAnyDatabase
+          - dbAdminAnyDatabase
+          - readWriteAnyDatabase
+          - clusterAdmin
+        state: present
+
+    - name: Réactiver l'authentification MongoDB
+      ansible.builtin.replace:
+        path: /etc/mongod.conf
+        regexp: '^  # authorization: enabled.*$'
+        replace: "  authorization: enabled"
+      notify: Redémarrer mongod (récupération)
+
+    - name: Appliquer la réactivation immédiatement
+      ansible.builtin.meta: flush_handlers
+
+    - name: Attendre que MongoDB redémarre avec authentification active
+      ansible.builtin.wait_for:
+        host: "{{ mongodb_bind_ip }}"
+        port: "{{ mongodb_port }}"
+        delay: 2
+        timeout: 60
+
+    - name: Vérifier la connexion avec le nouveau mot de passe administrateur
+      community.mongodb.mongodb_status:
+        login_host: "{{ mongodb_bind_ip }}"
+        login_port: "{{ mongodb_port }}"
+        login_user: "{{ mongodb_admin_user }}"
+        login_password: "{{ new_admin_password }}"
+        login_database: admin
+        replica_set: "{{ mongodb_replica_set }}"
+
+    - name: Réinitialiser le mot de passe du compte applicatif de production
+      # Maintenant que l'authentification est de nouveau active, on l'utilise
+      # normalement (connexion admin) pour aussi renouveler le compte
+      # applicatif — lui aussi rendu inaccessible par la perte du Vault.
+      community.mongodb.mongodb_user:
+        login_host: "{{ mongodb_bind_ip }}"
+        login_port: "{{ mongodb_port }}"
+        login_user: "{{ mongodb_admin_user }}"
+        login_password: "{{ new_admin_password }}"
+        login_database: admin
+        replica_set: "{{ mongodb_replica_set }}"
+        database: "{{ mongodb_database }}"
+        name: "{{ mongodb_app_user }}"
+        password: "{{ new_app_password }}"
+        update_password: always
+        roles:
+          - db: "{{ mongodb_database }}"
+            role: readWrite
+        state: present
+
+    - name: Afficher les nouveaux identifiants (UNE SEULE FOIS)
+      # À reporter immédiatement dans un nouveau vault.yml chiffré avec un
+      # nouveau mot de passe Vault, puis à faire disparaître de cet
+      # historique d'exécution (les runs GitHub Actions peuvent être purgés).
+      ansible.builtin.debug:
+        msg:
+          - "Nouvel administrateur MongoDB : {{ mongodb_admin_user }}"
+          - "Nouveau mot de passe admin    : {{ new_admin_password }}"
+          - "Nouveau mot de passe app      : {{ new_app_password }}"
+          - "Reportez ces valeurs dans un nouveau vault.yml puis purgez ce run."
+
+  handlers:
+    - name: Redémarrer mongod (récupération)
+      ansible.builtin.service:
+        name: mongod
+        state: restarted

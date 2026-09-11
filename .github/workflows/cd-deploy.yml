@@ -31,7 +31,7 @@ on:
         required: true
         default: deploy.yml
         type: choice
-        options: [deploy.yml, site.yml, rollback.yml, backup.yml, seed-events.yml]
+        options: [deploy.yml, site.yml, rollback.yml, backup.yml, seed-events.yml, recover-mongo-admin.yml]
 
 # Jamais deux déploiements simultanés sur le même serveur : ils se
 # marcheraient dessus sur le lien `current` et sur PM2.
@@ -197,13 +197,25 @@ jobs:
     # hérité ; la condition explicite reste la seule qui décide réellement.
     if: always() && needs.deploy.result == 'success'
     runs-on: ubuntu-latest
+    env:
+      # Même expression que TARGET_ENV dans le job `deploy` : recette et
+      # production ont chacune leur propre sous-domaine, la sonde doit
+      # interroger celui qui vient réellement d'être déployé.
+      TARGET_ENV: >-
+        ${{ github.event_name == 'workflow_dispatch'
+            && inputs.environment
+            || (github.ref == 'refs/heads/main' && 'production' || 'staging') }}
     steps:
       - name: Interroger la sonde de santé publique
         # Vérification depuis l'extérieur, à travers Nginx et TLS : c'est le
         # seul contrôle qui prouve que le service est réellement joignable par
         # les agents de terrain.
         run: |
-          URL="https://logichain.online/health"
+          if [ "$TARGET_ENV" = "production" ]; then
+            URL="https://logichain.online/health"
+          else
+            URL="https://staging.logichain.online/health"
+          fi
           for attempt in 1 2 3 4 5; do
             if curl -fsS --max-time 15 "$URL" | tee /tmp/health.json; then
               echo ""
