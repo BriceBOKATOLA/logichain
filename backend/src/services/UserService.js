@@ -60,19 +60,22 @@ class UserService {
   }
 
   /**
-   * Désactivation d'un compte : on ne fait PAS de suppression physique (perte
-   * d'historique/audit sur les items scannés par cet utilisateur), on invalide
-   * simplement sa session (refreshTokenHash) et on le retire du champ email
-   * pour empêcher toute nouvelle connexion, tout en gardant la trace en base.
+   * Active/désactive un compte, en un geste réversible : on ne fait JAMAIS de
+   * suppression physique (perte d'historique/audit sur les items scannés par
+   * cet utilisateur), on bascule simplement `isActive`. AuthService.login
+   * refuse toute connexion tant que `isActive` est faux. On invalide aussi la
+   * session en cours (refreshTokenHash) pour qu'une désactivation coupe
+   * immédiatement l'accès, même si l'agent a déjà un token en poche.
    */
-  async deactivate(userId) {
+  async setActive(userId, isActive) {
     const existing = await this.repository.findById(userId);
     if (!existing) throw ApiError.notFound('Utilisateur introuvable.');
 
-    await this.repository.updateById(userId, {
-      refreshTokenHash: null,
-      email: `${existing.email}.deactivated.${Date.now()}`,
+    const updated = await this.repository.updateById(userId, {
+      isActive,
+      ...(isActive ? {} : { refreshTokenHash: null }),
     });
+    return this._sanitize(updated);
   }
 
   _sanitize(user) {

@@ -13,4 +13,8 @@ module.exports = {
     role: Joi.string().valid('admin', 'logistics_manager', 'field_agent', 'transporter').optional(),
     assignedZone: Joi.string().allow(null).optional(),
   }).min(1),
+
+  setStatus: Joi.object({
+    isActive: Joi.boolean().required(),
+  }),
 };
