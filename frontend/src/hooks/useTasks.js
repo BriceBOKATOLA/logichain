@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import apiClient from '../services/ApiClient';
 import localItemRepository from '../database/repositories/LocalItemRepository';
 import syncQueueRepository from '../database/repositories/SyncQueueRepository';
+import { useAuthContext } from '../context/AuthContext';
 
 /**
  * useTasks — Fournit la liste des items/tâches d'un événement en respectant
@@ -9,8 +10,15 @@ import syncQueueRepository from '../database/repositories/SyncQueueRepository';
  * de rafraîchissement réseau qui met à jour le cache silencieusement — sans
  * jamais écraser un item dont une action locale est encore en attente de sync
  * (voir SyncQueueRepository.getUnresolvedItemIds).
+ *
+ * Téléchargement scopé au secteur assigné (exigence de parcimonie réseau/
+ * batterie du cahier des charges) : si l'agent connecté a un `assignedZone`,
+ * il n'est transmis au serveur que pour restreindre ce qui est mis en cache
+ * — un agent sans secteur assigné (ex: un transporteur qui couvre tout
+ * l'événement) continue de tout recevoir, comportement inchangé.
  */
 export function useTasks(eventId) {
+  const { user } = useAuthContext();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -24,8 +32,9 @@ export function useTasks(eventId) {
   const refreshFromServer = useCallback(async () => {
     if (!eventId) return;
     try {
+      const params = user?.assignedZone ? { zone: user.assignedZone } : undefined;
       const [{ data }, protectedIds] = await Promise.all([
-        apiClient.get(`/events/${eventId}/items`),
+        apiClient.get(`/events/${eventId}/items`, { params }),
         syncQueueRepository.getUnresolvedItemIds(eventId),
       ]);
       await localItemRepository.upsertMany(data.data, protectedIds);
@@ -33,7 +42,7 @@ export function useTasks(eventId) {
     } catch {
       // Silencieux : on reste sur les données locales si le réseau est indisponible.
     }
-  }, [eventId, loadFromCache]);
+  }, [eventId, loadFromCache, user]);
 
   useEffect(() => {
     loadFromCache().then(refreshFromServer);

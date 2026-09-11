@@ -518,6 +518,10 @@ paths:
           schema: { type: string, format: date-time }
           description: "Delta-sync : ne retourne que les items modifiés depuis cette date (évite de retélécharger tout le référentiel à chaque synchronisation mobile)."
         - in: query
+          name: zone
+          schema: { type: string }
+          description: "Scope le téléchargement initial au secteur assigné à l'agent (nom d'une zone de l'événement) : ne retourne que les items déjà géolocalisés dans cette zone, plus tout le matériel encore `in_stock` (pas encore déployé sur le terrain, donc à récupérer quel que soit le secteur). Nom de zone inconnu => filtre ignoré, liste complète renvoyée."
+        - in: query
           name: page
           schema: { type: integer, default: 1 }
         - in: query

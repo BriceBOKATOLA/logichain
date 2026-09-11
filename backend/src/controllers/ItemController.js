@@ -22,7 +22,7 @@ class ItemController {
     }
   };
 
-  /** GET /events/:eventId/items — Liste paginée, avec filtre delta-sync optionnel (updatedSince). */
+  /** GET /events/:eventId/items — Liste paginée, avec filtre delta-sync optionnel (updatedSince) et scope par secteur optionnel (zone). */
   list = async (req, res, next) => {
     try {
       const result = await itemService.list(req.params.eventId, req.query);
