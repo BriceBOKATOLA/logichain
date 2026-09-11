@@ -63,10 +63,25 @@
     # vhost n'était jamais rebasculé en HTTPS).
     cert_missing_at_start: "{{ not (tls_certificate.stat.exists | default(false)) }}"
 
+- name: Retirer l'ancien vhost unique (migration vers un nom par environnement)
+  # Avant l'introduction du staging, ce rôle déployait toujours
+  # « logichain-api.conf », quel que soit l'environnement. Le laisser traîner
+  # à côté du nouveau fichier nommé par environnement créerait un doublon de
+  # server block pour le même domaine.
+  ansible.builtin.file:
+    path: "/etc/nginx/{{ item }}/logichain-api.conf"
+    state: absent
+  loop: [sites-available, sites-enabled]
+  notify: reload nginx
+
 - name: Déployer le vhost de l'API
+  # Le nom de fichier inclut env_name : ce rôle tourne pour plusieurs
+  # environnements (production, staging) sur le MÊME serveur (VPS unique),
+  # chacun avec son propre domaine/port. Un nom de fichier fixe ferait que le
+  # second environnement déployé écraserait le vhost du premier.
   ansible.builtin.template:
     src: logichain-api.conf.j2
-    dest: /etc/nginx/sites-available/logichain-api.conf
+    dest: "/etc/nginx/sites-available/logichain-api-{{ env_name }}.conf"
     owner: root
     group: root
     mode: "0644"
@@ -74,8 +89,8 @@
 
 - name: Activer le vhost de l'API
   ansible.builtin.file:
-    src: /etc/nginx/sites-available/logichain-api.conf
-    dest: /etc/nginx/sites-enabled/logichain-api.conf
+    src: "/etc/nginx/sites-available/logichain-api-{{ env_name }}.conf"
+    dest: "/etc/nginx/sites-enabled/logichain-api-{{ env_name }}.conf"
     state: link
   notify: reload nginx
 
@@ -138,7 +153,7 @@
     - name: Redéployer le vhost en HTTPS
       ansible.builtin.template:
         src: logichain-api.conf.j2
-        dest: /etc/nginx/sites-available/logichain-api.conf
+        dest: "/etc/nginx/sites-available/logichain-api-{{ env_name }}.conf"
         owner: root
         group: root
         mode: "0644"

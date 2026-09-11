@@ -1,0 +1,28 @@
+---
+# ---------------------------------------------------------------------------
+# MODÈLE de fichier de secrets pour la RECETTE (staging). NE JAMAIS COMMITER
+# LA VERSION REMPLIE EN CLAIR — voir la procédure complète dans
+# inventories/production/group_vars/vault.yml.example.
+#
+# Point IMPORTANT propre à cet environnement : la recette tourne sur le même
+# VPS et la même instance MongoDB que la production (un seul replica set par
+# serveur). `vault_mongodb_admin_password` doit donc être EXACTEMENT le même
+# mot de passe que celui déjà présent dans
+# inventories/production/group_vars/vault.yml — ce n'est pas un nouveau
+# compte, c'est le même administrateur MongoDB qui gère les deux bases.
+# `vault_mongodb_app_password`, lui, est propre à la recette : il protège le
+# compte applicatif `logichain_staging_app`, restreint à la seule base
+# `logichain_staging`, sans aucun accès à la base de production.
+# ---------------------------------------------------------------------------
+
+# --- Secrets JWT --------------------------------------------------------
+# Volontairement DIFFÉRENTS de ceux de production : un jeton émis en recette
+# ne doit jamais être accepté en production, et inversement.
+vault_jwt_access_secret: "REMPLACER_openssl_rand_hex_32"
+vault_jwt_refresh_secret: "REMPLACER_AUTRE_openssl_rand_hex_32"
+
+# --- MongoDB --------------------------------------------------------------
+# Identique à la production : même instance, même administrateur.
+vault_mongodb_admin_password: "IDENTIQUE_A_production/vault.yml"
+# Propre à la recette : nouveau mot de passe, nouveau compte applicatif.
+vault_mongodb_app_password: "REMPLACER_openssl_rand_base64_24"
