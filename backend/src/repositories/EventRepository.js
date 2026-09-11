@@ -27,6 +27,18 @@ class EventRepository extends BaseRepository {
       .exec();
     return result?.zones?.[0] || null;
   }
+
+  /**
+   * Résout la géométrie d'une zone par son nom (User.assignedZone n'est qu'un
+   * libellé, il faut le recroiser avec les zones réelles de l'événement pour
+   * obtenir un polygone exploitable en filtre géospatial).
+   */
+  async findZoneByName(eventId, zoneName) {
+    const result = await this.model
+      .findOne({ _id: eventId, 'zones.name': zoneName }, { 'zones.$': 1 })
+      .exec();
+    return result?.zones?.[0] || null;
+  }
 }
 
 module.exports = new EventRepository();
