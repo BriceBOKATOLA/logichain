@@ -61,18 +61,30 @@ Le même code source (React Native + `react-native-web`) tourne aussi dans le
 navigateur, servi par Nginx sur **le même domaine que l'API** :
 <https://logichain.online>.
 
-**Décision de scope volontaire** : le web se limite au **tableau de bord de
-supervision multi-événements**. Le scan de matériel, les itinéraires, le
-centre de synchronisation, la carte et la déclaration d'anomalie restent des
-fonctionnalités de **terrain, mobiles uniquement** — elles reposent sur la
-caméra, la localisation en arrière-plan et la file d'attente hors-ligne
-SQLite, qui n'ont pas leur place dans un usage bureau/supervision. Cette
-séparation est appliquée au niveau de l'arborescence, pas d'un simple masquage
-visuel : `App.web.js` et `AppNavigator.web.js` (sélectionnés automatiquement
-par Metro via le suffixe `.web.js`) n'importent tout simplement pas les
-écrans, hooks ni dépendances natives concernés (caméra, SQLite, Leaflet) —
-Metro les exclut donc entièrement du bundle web, qui est passé de 1,26 Mo à
-725 Ko une fois ce périmètre resserré.
+**Décision de scope volontaire** : le web se limite à la **supervision
+administrateur** (tableau de bord multi-événements, détail d'un événement,
+gestion des comptes). Le scan de matériel, les itinéraires terrain, le centre
+de synchronisation et la déclaration d'anomalie restent des fonctionnalités
+de **terrain, mobiles uniquement** — elles reposent sur la caméra, la
+localisation en arrière-plan et la file d'attente hors-ligne SQLite, qui n'ont
+pas leur place dans un usage bureau. Cette séparation est appliquée au niveau
+de l'arborescence, pas d'un simple masquage visuel : `App.web.js` et
+`AppNavigator.web.js` (sélectionnés automatiquement par Metro via le suffixe
+`.web.js`) n'importent tout simplement pas les écrans, hooks ni dépendances
+natives concernés (caméra, SQLite) — Metro les exclut donc entièrement du
+bundle web.
+
+La carte (Leaflet + OpenStreetMap, [`ZoneMap.web.js`](src/components/ZoneMap.web.js))
+fait en revanche partie du web : un administrateur doit pouvoir visualiser où
+se trouve le matériel d'un événement, pas seulement mobile en tant qu'outil
+terrain.
+
+**Connexion réservée aux administrateurs sur le web** : [`AuthContext.web.js`](src/context/AuthContext.web.js)
+refuse toute session dont le rôle n'est pas `admin` (déconnexion immédiate,
+message explicite) — un agent de terrain, un transporteur ou un responsable
+logistique continue de se connecter normalement sur mobile,
+[`AuthContext.js`](src/context/AuthContext.js) n'appliquant, lui, aucune
+restriction de rôle.
 
 ```bash
 npm run web              # serveur de développement (expo start --web)
@@ -81,10 +93,12 @@ npm run build:web        # export statique de production -> frontend/web-build/
 
 ### Routes web
 
-| Route    | Écran                                                                          |
-| -------- | ------------------------------------------------------------------------------ |
-| `/`      | Tableau de bord — liste de tous les événements avec leurs indicateurs de stock |
-| `/login` | Connexion                                                                      |
+| Route                  | Écran                                                                                                        |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `/`                    | Tableau de bord — liste de tous les événements avec leurs indicateurs de stock                               |
+| `/evenements/:eventId` | Détail d'un événement — zones affiliées, carte interactive du matériel géolocalisé, liste complète des items |
+| `/utilisateurs`        | Gestion des comptes — activer/désactiver un utilisateur en un clic                                           |
+| `/login`               | Connexion (réservée aux comptes `admin` sur le web)                                                          |
 
 Le tableau de bord web ([`DashboardScreen.web.js`](src/screens/DashboardScreen.web.js))
 diffère volontairement de celui du mobile
@@ -99,10 +113,9 @@ erreur bloquante.
 
 ### Différences plateforme
 
-`ZoneMap.js` / `ZoneMap.web.js` (react-native-maps vs Leaflet+OpenStreetMap)
-et le moteur SQLite web d'`expo-sqlite` (wa-sqlite/OPFS) restent dans le code
-pour l'usage mobile, mais ne sont plus jamais chargés par le web depuis que
-celui-ci se limite au Dashboard — voir la note de scope ci-dessus.
+Le moteur SQLite web d'`expo-sqlite` (wa-sqlite/OPFS) reste dans le code pour
+l'usage mobile hors-ligne, mais n'est jamais chargé par le web : la
+supervision administrateur ne travaille que sur des données serveur à jour.
 
 ## Qualité et tests
 

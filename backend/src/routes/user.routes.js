@@ -13,6 +13,6 @@ router.use(authMiddleware.authenticate, authMiddleware.requireRole('admin'));
 router.get('/', userController.list);
 router.get('/:id', userController.getById);
 router.patch('/:id', validate.validate(schemas.update), userController.update);
-router.delete('/:id', userController.deactivate);
+router.patch('/:id/status', validate.validate(schemas.setStatus), userController.setStatus);
 
 module.exports = router;

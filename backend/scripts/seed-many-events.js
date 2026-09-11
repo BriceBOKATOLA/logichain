@@ -45,6 +45,27 @@ function makeZone(name, [lng, lat]) {
   };
 }
 
+// Point aléatoire à l'intérieur (large) du centre d'une zone, pour que la
+// carte du tableau de bord affiche des marqueurs dispersés de façon réaliste
+// plutôt que tous superposés au même pixel.
+function randomPointNear([lng, lat]) {
+  const jitter = () => (Math.random() - 0.5) * 0.008;
+  return { type: 'Point', coordinates: [lng + jitter(), lat + jitter()] };
+}
+
+// Centre géographique d'un événement : moyenne de la boîte englobante de sa
+// première zone, ou un point par défaut (Paris) si l'événement n'a aucune
+// zone définie — un item doit toujours avoir une position exploitable.
+const DEFAULT_CENTER = [2.3522, 48.8566];
+function eventCenter(event) {
+  const zone = event.zones && event.zones[0];
+  if (!zone) return DEFAULT_CENTER;
+  const ring = zone.geometry.coordinates[0];
+  const lngs = ring.map((p) => p[0]);
+  const lats = ring.map((p) => p[1]);
+  return [(Math.min(...lngs) + Math.max(...lngs)) / 2, (Math.min(...lats) + Math.max(...lats)) / 2];
+}
+
 const EVENTS = [
   {
     name: 'Salon Tech Innovation 2026',
@@ -148,11 +169,12 @@ async function seed() {
     const event = await Event.create(def);
     created += 1;
 
-    // 2 à 5 items par événement, pour que le tableau de bord de supervision
-    // affiche des répartitions de stock variées et réalistes plutôt que des
-    // colonnes vides.
-    const itemCount = 2 + Math.floor(Math.random() * 4);
+    // 4 à 10 items par événement, pour que le tableau de bord de supervision
+    // (liste d'items + carte) affiche des répartitions et des positions
+    // variées et réalistes plutôt que des écrans presque vides.
+    const itemCount = 4 + Math.floor(Math.random() * 7);
     const states = ['in_stock', 'in_transit', 'delivered', 'in_maintenance'];
+    const center = eventCenter(event);
     const items = Array.from({ length: itemCount }).map((_, i) => ({
       label: ITEM_LABELS[Math.floor(Math.random() * ITEM_LABELS.length)],
       qrCode: `QR-${event._id.toString().slice(-6)}-${i}`,
@@ -160,6 +182,7 @@ async function seed() {
       state: def.status === 'draft' ? 'in_stock' : states[Math.floor(Math.random() * states.length)],
       carbonWeightKg: 50 + Math.floor(Math.random() * 2000),
       transportMode: TRANSPORT_MODES[Math.floor(Math.random() * TRANSPORT_MODES.length)],
+      location: randomPointNear(center),
     }));
     await Item.insertMany(items);
   }
