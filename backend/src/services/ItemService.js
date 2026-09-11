@@ -1,4 +1,5 @@
 const itemRepository = require('../repositories/ItemRepository');
+const eventRepository = require('../repositories/EventRepository');
 const ItemEntity = require('../entities/Item.entity');
 const notificationService = require('./NotificationService');
 const monitoringRepository = require('../repositories/MonitoringRepository');
@@ -147,11 +148,34 @@ class ItemService {
    * synchronisation plutôt que de retélécharger tout le référentiel à chaque fois —
    * important pour la performance sur un événement avec des milliers d'items.
    */
-  async list(eventId, { updatedSince, ...pagination } = {}) {
+  /**
+   * Liste le matériel d'un événement. `zone` (optionnel) scope le
+   * téléchargement au secteur assigné à l'agent — exigence explicite du
+   * cahier des charges sur la parcimonie réseau/batterie : un agent de
+   * terrain n'a pas besoin de télécharger tout le référentiel de
+   * l'événement, seulement ce qui le concerne.
+   *
+   * Un item encore `in_stock` (jamais déployé sur le terrain, donc à une
+   * position par défaut non significative) reste TOUJOURS inclus, quelle que
+   * soit la zone demandée : un agent doit pouvoir le voir pour le prendre en
+   * charge et le transporter vers son secteur, ce qui serait impossible si le
+   * filtre géographique l'excluait avant même qu'il n'ait de position réelle.
+   */
+  async list(eventId, { updatedSince, zone, ...pagination } = {}) {
     const filter = { eventId };
     if (updatedSince) {
       filter.updatedAt = { $gte: new Date(updatedSince) };
     }
+
+    if (zone) {
+      const zoneDoc = await eventRepository.findZoneByName(eventId, zone);
+      // Nom de secteur inconnu (zone renommée/supprimée depuis) : on ignore le
+      // filtre plutôt que de renvoyer une liste vide qui bloquerait l'agent.
+      if (zoneDoc) {
+        filter.$or = [{ state: 'in_stock' }, { location: { $geoWithin: { $geometry: zoneDoc.geometry } } }];
+      }
+    }
+
     return this.repository.find(filter, pagination);
   }
 }
