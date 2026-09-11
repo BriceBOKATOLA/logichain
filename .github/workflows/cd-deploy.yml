@@ -31,7 +31,7 @@ on:
         required: true
         default: deploy.yml
         type: choice
-        options: [deploy.yml, site.yml, rollback.yml, backup.yml]
+        options: [deploy.yml, site.yml, rollback.yml, backup.yml, seed-events.yml]
 
 # Jamais deux déploiements simultanés sur le même serveur : ils se
 # marcheraient dessus sur le lien `current` et sur PM2.
