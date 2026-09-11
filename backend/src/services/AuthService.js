@@ -32,6 +32,11 @@ class AuthService {
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) throw ApiError.unauthorized('Identifiants invalides.');
 
+    // Compte désactivé par un administrateur (UserService.setActive) : les
+    // identifiants restent valides (on ne les révoque pas), mais la session
+    // ne doit jamais être émise tant que le compte n'est pas réactivé.
+    if (user.isActive === false) throw ApiError.forbidden('Ce compte a été désactivé.');
+
     const tokens = this._issueTokens(user);
     user.refreshTokenHash = crypto.createHash('sha256').update(tokens.refreshToken).digest('hex');
     await user.save();

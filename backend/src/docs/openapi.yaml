@@ -323,18 +323,30 @@ paths:
         '200': { description: Utilisateur mis à jour }
         '404': { description: Utilisateur introuvable }
         '422': { description: Données invalides }
-    delete:
+
+  /users/{id}/status:
+    patch:
       tags: [Users]
-      summary: Désactiver un compte (admin uniquement — pas de suppression physique, pour préserver l'audit)
+      summary: Activer ou désactiver un compte, en un geste réversible (admin uniquement — pas de suppression physique, pour préserver l'audit)
       security: [{ bearerAuth: [] }]
       parameters:
         - in: path
           name: id
           required: true
           schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [isActive]
+              properties:
+                isActive: { type: boolean }
       responses:
-        '200': { description: Utilisateur désactivé }
+        '200': { description: Utilisateur activé ou désactivé }
         '404': { description: Utilisateur introuvable }
+        '422': { description: Données invalides }
 
   /events:
     post:
@@ -505,6 +517,10 @@ paths:
           name: updatedSince
           schema: { type: string, format: date-time }
           description: "Delta-sync : ne retourne que les items modifiés depuis cette date (évite de retélécharger tout le référentiel à chaque synchronisation mobile)."
+        - in: query
+          name: zone
+          schema: { type: string }
+          description: "Scope le téléchargement initial au secteur assigné à l'agent (nom d'une zone de l'événement) : ne retourne que les items déjà géolocalisés dans cette zone, plus tout le matériel encore `in_stock` (pas encore déployé sur le terrain, donc à récupérer quel que soit le secteur). Nom de zone inconnu => filtre ignoré, liste complète renvoyée."
         - in: query
           name: page
           schema: { type: integer, default: 1 }

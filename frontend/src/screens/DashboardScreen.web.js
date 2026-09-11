@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { colors, spacing, radius, typography, shadow } from '../theme/theme';
 import { useAuthContext } from '../context/AuthContext';
 import { useEventsOverview } from '../hooks/useEventsOverview';
@@ -29,6 +30,7 @@ function formatDate(iso) {
  * place dans un usage bureau).
  */
 export default function DashboardScreen() {
+  const navigation = useNavigation();
   const { logout } = useAuthContext();
   const { events, loading, error, refresh } = useEventsOverview();
 
@@ -36,10 +38,13 @@ export default function DashboardScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.headerRow}>
         <View>
-          <Text style={styles.title}>LogiChain — Supervision</Text>
+          <Text style={styles.title}>LogiChain Supervision</Text>
           <Text style={styles.subtitle}>{events.length} événement(s)</Text>
         </View>
         <View style={styles.headerActions}>
+          <Pressable style={styles.secondaryButton} onPress={() => navigation.navigate('Users')}>
+            <Text style={styles.secondaryButtonText}>Utilisateurs</Text>
+          </Pressable>
           <Pressable style={styles.secondaryButton} onPress={refresh}>
             <Text style={styles.secondaryButtonText}>Rafraîchir</Text>
           </Pressable>
@@ -70,7 +75,11 @@ export default function DashboardScreen() {
 
       <View style={styles.grid}>
         {events.map((event) => (
-          <View key={event._id} style={styles.card}>
+          <Pressable
+            key={event._id}
+            style={({ hovered }) => [styles.card, hovered && styles.cardHovered]}
+            onPress={() => navigation.navigate('EventDetail', { eventId: event._id })}
+          >
             <View style={styles.cardHeader}>
               <Text style={styles.cardTitle} numberOfLines={2}>
                 {event.name}
@@ -100,7 +109,7 @@ export default function DashboardScreen() {
             ) : (
               <Text style={styles.cardMeta}>Statistiques non disponibles pour votre rôle.</Text>
             )}
-          </View>
+          </Pressable>
         ))}
       </View>
     </ScrollView>
@@ -142,6 +151,7 @@ const styles = StyleSheet.create({
     width: 320,
     ...shadow.card,
   },
+  cardHovered: { borderColor: colors.primary },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   cardTitle: { ...typography.h2, fontSize: 17, flex: 1, marginRight: spacing.sm },
   statusBadge: {
