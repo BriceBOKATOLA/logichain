@@ -81,10 +81,10 @@ npm run build:web        # export statique de production -> frontend/web-build/
 
 ### Routes web
 
-| Route    | Écran                                          |
-| -------- | ----------------------------------------------- |
+| Route    | Écran                                                                          |
+| -------- | ------------------------------------------------------------------------------ |
 | `/`      | Tableau de bord — liste de tous les événements avec leurs indicateurs de stock |
-| `/login` | Connexion                                        |
+| `/login` | Connexion                                                                      |
 
 Le tableau de bord web ([`DashboardScreen.web.js`](src/screens/DashboardScreen.web.js))
 diffère volontairement de celui du mobile
