@@ -18,6 +18,13 @@
   become: true
   become_user: "{{ app_user }}"
 
+  # Ce playbook n'applique pas le rôle app_runtime (on ne veut exécuter que le
+  # script de seed, pas rejouer tout le déploiement) : ses valeurs par défaut
+  # ne sont donc pas chargées automatiquement. app_backend_subdir doit rester
+  # identique à roles/app_runtime/defaults/main.yml, seule source de vérité.
+  vars:
+    app_backend_subdir: backend
+
   tasks:
     - name: Exécuter le script de seed additif
       ansible.builtin.command:
