@@ -84,14 +84,14 @@ L'API est déployée par Ansible et supervisée par PM2 en mode cluster, derriè
 Nginx. Procédures de déploiement, de rollback et de sauvegarde :
 [docs/RUNBOOK.md](../docs/RUNBOOK.md).
 
-## Toutes les routes de l'API (26 chemins / 37 opérations)
+## Toutes les routes de l'API (27 chemins / 37 opérations)
 
 CRUD complet sur chaque ressource métier (Create / Read / Update / Delete) :
 
 | Ressource             | Create                        | Read                                                                                  | Update                                                                | Delete                                             |
 | --------------------- | ----------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------- |
 | **Auth**              | `POST /auth/register`         | —                                                                                     | `POST /auth/refresh`                                                  | `POST /auth/logout`                                |
-| **Users** _(admin)_   | via `/auth/register`          | `GET /users`, `GET /users/:id`                                                        | `PATCH /users/:id`                                                    | `DELETE /users/:id` _(désactivation)_              |
+| **Users** _(admin)_   | via `/auth/register`          | `GET /users`, `GET /users/:id`                                                        | `PATCH /users/:id`, `PATCH /users/:id/status` _(active/désactive)_    | —                                                  |
 | **Events**            | `POST /events`                | `GET /events`, `/events/active`, `/events/:id`                                        | `PATCH /events/:id`                                                   | `DELETE /events/:id` _(refusé si items rattachés)_ |
 | **Zones**             | `POST /events/:id/zones`      | `GET /events/:id/agent-zone`                                                          | —                                                                     | —                                                  |
 | **Items**             | `POST /events/:eventId/items` | `GET .../items`, `/qr/:qrCode`, `/:id`                                                | `PATCH /:id` _(métadonnées)_, `PATCH /:id/scan`, `PATCH /:id/anomaly` | `DELETE /:id`                                      |

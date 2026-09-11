@@ -104,7 +104,7 @@ export default function SyncCenterScreen() {
             </View>
           </View>
         )}
-        ListEmptyComponent={<Text style={styles.empty}>Aucun conflit — tout est cohérent.</Text>}
+        ListEmptyComponent={<Text style={styles.empty}>Aucun conflit, tout est cohérent.</Text>}
         style={{ marginTop: spacing.md }}
       />
     </View>
