@@ -68,13 +68,12 @@ export default function ZoneMap({ zones, items, initialRegion }) {
     <MapContainer center={center} zoom={zoom} style={{ width: '100%', height: '100%' }}>
       <InvalidateSizeOnMount />
       <TileLayer
-        // tile.openstreetmap.org est reserve a un usage tres leger (serveurs
-        // benevoles) et bloque tout trafic de production (403 Access
-        // blocked). CARTO fournit les memes tuiles OSM sans cette
-        // restriction, sans cle API requise.
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-        detectRetina
+        // tile.openstreetmap.org bloque le trafic de production (403), et
+        // CARTO exige desormais une cle API meme sur son offre gratuite.
+        // Esri sert des tuiles equivalentes sans cle et sans compte,
+        // solution eprouvee et stable pour un usage embarque comme celui-ci.
+        attribution="Tiles &copy; Esri"
+        url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
       />
       {zones.map((zone) => (
         <Polygon
